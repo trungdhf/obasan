@@ -56,7 +56,7 @@ app.get('/api/config', (_req, res) => {
 // Short-lived token the tablet trades for a direct Gemini Live session.
 function liveModel() {
   return process.env.LIVE_MODEL || (gemini.isVertex()
-    ? 'gemini-live-2.5-flash-preview-native-audio-09-2025'
+    ? 'gemini-live-2.5-flash'   // verified on the global Vertex endpoint
     : 'gemini-2.5-flash-preview-native-audio-dialog');
 }
 

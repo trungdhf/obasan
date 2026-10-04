@@ -49,10 +49,12 @@ gcloud run deploy hinata \
   --set-secrets "LINE_CHANNEL_SECRET=line-secret:latest,LINE_CHANNEL_ACCESS_TOKEN=line-token:latest,JOB_SECRET=job-secret:latest"
 ```
 
-> `GOOGLE_CLOUD_LOCATION` is the Vertex region — `us-central1` is the safest
-> choice for the native-audio Live model; `asia-northeast1` also works for
-> Run/Firestore/Scheduler. You may deploy to two regions or use one region for
-> everything if the model is available there.
+> `GOOGLE_CLOUD_LOCATION` is the Vertex region used for **TTS** — `us-central1`
+> is the safest choice. **Gemini Live runs on the `global` Vertex endpoint**
+> (model `gemini-live-2.5-flash`; regional Live publisher models are not
+> served — verified 2026-10). Override with `VERTEX_LIVE_LOCATION` only if a
+> regional Live model works in your region. `asia-northeast1` is a good choice
+> for the Cloud Run service itself (Run/Firestore/Scheduler are all regional).
 
 `--source .` builds the root `Dockerfile` (at `backend/Dockerfile` — point build
 config there or add a root Dockerfile/cloudbuild.yaml that uses it; the image

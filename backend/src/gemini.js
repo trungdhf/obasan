@@ -13,6 +13,11 @@ const API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
 // tested without also enabling the Firestore store.
 const PROJECT = process.env.VERTEX_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || '';
 const LOCATION = process.env.VERTEX_LOCATION || process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
+// Live runs on the 'global' Vertex endpoint: regional Live publisher models
+// (e.g. gemini-live-2.5-flash on us-central1) are not served — verified
+// 2026-10 against a real project (close 1008 "Publisher model ...").
+// TTS stays regional (LOCATION); override with VERTEX_LIVE_LOCATION if needed.
+const LIVE_LOCATION = process.env.VERTEX_LIVE_LOCATION || 'global';
 const TTS_MODEL = process.env.TTS_MODEL || 'gemini-2.5-flash-preview-tts';
 const TTS_VOICE = process.env.TTS_VOICE || 'Leda';
 
@@ -41,7 +46,7 @@ export async function createLiveToken() {
     const client = await auth.getClient();
     const { token } = await client.getAccessToken();
     if (!token) throw new Error('no access token (check ADC / service account)');
-    return { token, vertex: true, location: LOCATION, project: PROJECT };
+    return { token, vertex: true, location: LIVE_LOCATION, project: PROJECT };
   }
   const now = Date.now();
   const t = await ai.authTokens.create({
@@ -63,7 +68,7 @@ export async function synthesizeSpeech(text) {
   if (hit) return hit;
   const res = await ai.models.generateContent({
     model: TTS_MODEL,
-    contents: [{ parts: [{ text: `元気な幼い子どもの声で、おばあちゃんに話しかけるように言ってください: ${text}` }] }],
+    contents: [{ role: 'user', parts: [{ text: `元気な幼い子どもの声で、おばあちゃんに話しかけるように言ってください: ${text}` }] }],
     config: {
       responseModalities: ['AUDIO'],
       speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: TTS_VOICE } } }
