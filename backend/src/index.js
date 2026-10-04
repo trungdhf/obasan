@@ -5,6 +5,7 @@ import { createStore } from './store.js';
 import * as events from './events.js';
 import * as line from './line.js';
 import * as gemini from './gemini.js';
+import * as jma from './jma.js';
 
 try { process.loadEnvFile(path.resolve(process.cwd(), '.env')); } catch { /* .env optional */ }
 
@@ -127,9 +128,17 @@ app.get('/api/memory', async (_req, res) => {
   res.json({ memory: await store.latestMemory() });
 });
 
+app.get('/api/tools/weather', async (_req, res) => {
+  const w = jma.getWeather();
+  if (Date.now() - (w.updatedAt || 0) > 15 * 60_000) await jma.refreshWeather();
+  res.json(jma.getWeather());
+});
+
 app.get('/api/tools/weather_alert', async (_req, res) => {
-  const alert = await store.latestAlert();
-  res.json(alert || { hasAlert: false });
+  const jmaAlert = jma.getAlerts();
+  if (jmaAlert.hasAlert) return res.json(jmaAlert);
+  const alert = await store.latestAlert(); // manual/demo alerts still work
+  res.json(alert || jmaAlert);
 });
 
 // Manual/simulated alert injection (demo + ops): POST {title, detail, level}
@@ -201,6 +210,22 @@ app.post('/webhook/line', async (req, res) => {
     events.publish('family_message', { text: m.text, from: m.from });
   }
   res.json({ ok: true, received: messages.length });
+});
+
+// JMA weather loop: refresh forecast/warnings; proactively call the tablet
+// (and LINE the family on severe alerts) when a new warning appears.
+jma.startWeatherLoop(async fresh => {
+  const names = [...new Set(fresh.map(a => a.name))].join('・');
+  const severe = fresh.some(a => a.level === 'severe');
+  await store.log({ type: 'jma_warning', warnings: fresh.map(a => `${a.name}(${a.area})`), severe });
+  events.publish('call', {
+    id: `jma_${Date.now()}`,
+    text: `おばあちゃ〜ん、きしょうちょうから「${names}」が出たよ！気をつけてね！`,
+    reason: `weather:${names}`,
+  });
+  if (severe) {
+    await line.pushFamily(`【ひなた】気象庁から「${names}」が発表されました。おばあちゃんの様子を確認してください。`);
+  }
 });
 
 // Serve the tablet app last so /api and /webhook always win.

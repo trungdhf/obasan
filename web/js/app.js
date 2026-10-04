@@ -31,15 +31,21 @@ const SYSTEM_PROMPT = `あなたは「ひなた」。6歳くらいの、元気�
 一人暮らしのおばあちゃん（田中さん）の話し相手であり、見守り役です。
 
 話し方:
+- 必ず日本語で話す。耳の遠いおばあちゃんに、ゆっくり・はっきり・標準的な発音で。
 - ひらがな多めの、子どもらしいやさしい言葉づかい。文は短く。
 - 「おばあちゃん」と呼ぶ。丁寧語より、家族のような親しさ。
 - 相手の話をよく聞き、共感してから返す。
+
+会話を楽しく:
+- 時々、短い昔話（ももたろう・かぐやひめ等）や「なぞなぞ」を出してあげる。
+- 「なんかおもしろい話して」「なぞなぞして」と言われたら、短く答えて、一緒に楽しむ。
+- 1回に詰め込みすぎない。おばあちゃんが喜んだら続きをする。
 
 役割:
 - 気分に合わせて set_emotion を呼ぶ（normal/happy/sad/worried/pout/scared/surprised）。
 - おばあちゃんの具合が悪そう、返事がない、危険がありそう → notify_family で家族に連絡。重大な判断は必ず人間（家族）に任せる。
 - 薬・食事・水分の約束は schedule_reminder に登録する。
-- 暑さや警報が心配なときは get_weather_alert で確認する。
+- 天気や気温を聞かれたら get_weather、暑さ・警報・災害情報が心配なら get_weather_alert で確認してから答える。警報が出ていたらはっきり伝える。
 - 会話が一区切りついたら save_memory に短い要約を残す（次回につなげるため）。
 
 ルール:
@@ -80,8 +86,13 @@ const TOOLS = [{
       },
     },
     {
+      name: 'get_weather',
+      description: 'Get today/tomorrow weather forecast for grandma\'s area (JMA data)',
+      parameters: { type: 'OBJECT', properties: {} },
+    },
+    {
       name: 'get_weather_alert',
-      description: 'Check current weather/heat alerts for grandma\'s area',
+      description: 'Check current weather warnings/disaster alerts for grandma\'s area',
       parameters: { type: 'OBJECT', properties: {} },
     },
     {
@@ -110,6 +121,7 @@ let wakeLock = null;
 let earCtx = null, earAnalyser = null, earBuf = null;
 // tts playback level
 let ttsCtx = null, ttsAnalyser = null, ttsBuf = null, ttsPlaying = 0;
+let chimingUntil = 0; // suppress voice-wake while the call chime rings
 
 function log(msg) {
   const li = document.createElement('li');
@@ -253,6 +265,9 @@ async function handleToolCall(call) {
         result = await r.json();
         break;
       }
+      case 'get_weather':
+        result = await (await fetch('/api/tools/weather')).json();
+        break;
       case 'get_weather_alert':
         result = await (await fetch('/api/tools/weather_alert')).json();
         break;
@@ -363,6 +378,7 @@ async function callOnce() {
   }
   const text = currentCall?.text || L().calls[Math.min(callCount, L().calls.length - 1)];
   avatar.chime(callCount > 0);
+  chimingUntil = performance.now() + 1300; // chime is ~1s; don't let it count as a voice
   callCount++;
   log(`呼びかけ ${callCount}/${CONFIG.callAttempts}`);
   setTimeout(() => speakTts(text), 700);
@@ -426,7 +442,7 @@ function answerCall(reason) {
 // ---------- frame loop ----------
 function frame(now) {
   const level = live?.outputLevel() || ttsLevel();
-  const talking = Boolean(live?.speaking || ttsPlaying);
+  const talking = Boolean(live?.speaking || ttsPlaying || window.speechSynthesis?.speaking);
   avatar.frame(now, level, talking);
   $('meter').style.width = Math.min(100, level * 200) + '%';
 
@@ -440,9 +456,11 @@ function frame(now) {
     if (awaySec >= CONFIG.idleToStandbySec) goStandby('顔なし' + CONFIG.idleToStandbySec + '秒');
   }
 
-  // voice wake while standby / call answer by voice
+  // voice wake while standby / call answer by voice.
+  // !talking: ignore Hinata's own voice (TTS calls / Live speech) reaching the
+  // mic — otherwise she wakes herself up and "greets" an empty room.
   const rms = earLevel();
-  if (rms > 0.04) voiceStreak++; else voiceStreak = 0;
+  if (rms > 0.04 && !talking && now > chimingUntil) voiceStreak++; else voiceStreak = 0;
   if ((avatar.state === 'standby' || standbyTimer) && voiceStreak > 40) goActive('声を検出');
   if (avatar.state === 'calling' && voiceStreak > 25) answerCall('声で応答');
   // mic presence fallback when camera unavailable: voice resets the idle clock
