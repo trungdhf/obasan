@@ -1,13 +1,17 @@
 // Gemini Live client — minimal raw-WebSocket implementation of the Live
-// bidi protocol. Two endpoints:
-//  - AI Studio: BidiGenerateContentConstrained + ephemeral token (?key=)
-//  - Vertex AI: LlmBidiService.BidiGenerateContent + OAuth token (?access_token=)
+// bidi protocol, matching the @google/genai SDK's endpoint/auth rules:
+//  - AI Studio: GenerativeService.BidiGenerateContentConstrained with an
+//    ephemeral token passed as ?access_token= (NOT ?key= — that form is for
+//    regular API keys on BidiGenerateContent).
+//  - Vertex AI: google.cloud.aiplatform.v1beta1.LlmBidiService/BidiGenerateContent
+//    (slash before the method) + OAuth access token as ?access_token= —
+//    browsers cannot set the Authorization header the SDK uses.
 // Mic → 16kHz PCM up; model audio → 24kHz PCM playback with an analyser
 // feeding the avatar's lip-sync. No SDK dependency in the browser.
 
 const WS_URL = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained';
 function vertexWsUrl(location) {
-  return `wss://${location}-aiplatform.googleapis.com/ws/google.cloud.aiplatform.v1beta1.LlmBidiService.BidiGenerateContent`;
+  return `wss://${location}-aiplatform.googleapis.com/ws/google.cloud.aiplatform.v1beta1.LlmBidiService/BidiGenerateContent`;
 }
 const IN_RATE = 16000;
 const OUT_RATE = 24000;
@@ -80,7 +84,7 @@ export class LiveSession {
     return new Promise((resolve, reject) => {
       const ws = new WebSocket(this.vertex
         ? `${vertexWsUrl(this.location)}?access_token=${encodeURIComponent(this.token)}`
-        : `${WS_URL}?key=${encodeURIComponent(this.token)}`);
+        : `${WS_URL}?access_token=${encodeURIComponent(this.token)}`);
       this.ws = ws;
       ws.onopen = () => this._sendSetup();
       const timeout = setTimeout(() => reject(new Error('Live setup timeout')), 15000);

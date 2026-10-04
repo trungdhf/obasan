@@ -9,8 +9,10 @@ import { GoogleGenAI } from '@google/genai';
 import { GoogleAuth } from 'google-auth-library';
 
 const API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
-const PROJECT = process.env.GOOGLE_CLOUD_PROJECT || '';
-const LOCATION = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
+// VERTEX_PROJECT overrides GOOGLE_CLOUD_PROJECT so Vertex Live/TTS can be
+// tested without also enabling the Firestore store.
+const PROJECT = process.env.VERTEX_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || '';
+const LOCATION = process.env.VERTEX_LOCATION || process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
 const TTS_MODEL = process.env.TTS_MODEL || 'gemini-2.5-flash-preview-tts';
 const TTS_VOICE = process.env.TTS_VOICE || 'Leda';
 
