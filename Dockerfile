@@ -1,3 +1,5 @@
+# Cloud Run image for the Hinata tablet app (static web + Node backend).
+# Build context is the repo root so both backend/ and web/ are available.
 FROM node:22-slim
 WORKDIR /app
 COPY backend/package.json backend/package-lock.json* ./backend/

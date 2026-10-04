@@ -45,9 +45,15 @@ gcloud run deploy hinata \
   --source . \
   --region $REGION \
   --allow-unauthenticated \
-  --set-env-vars "GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=$REGION,QUIET_HOURS=22-7,IDLE_TO_STANDY_SEC=45" \
+  --timeout 3600 \
+  --set-env-vars "GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=us-central1,QUIET_HOURS=22-7,IDLE_TO_STANDY_SEC=45" \
   --set-secrets "LINE_CHANNEL_SECRET=line-secret:latest,LINE_CHANNEL_ACCESS_TOKEN=line-token:latest,JOB_SECRET=job-secret:latest"
 ```
+
+> `--timeout 3600` keeps the SSE stream (tablet ← backend events) alive past
+> the 300s default; the page auto-reconnects anyway but long timeouts are
+> smoother. Omit `--set-secrets` if you haven't created LINE secrets yet —
+> the app runs fine and logs family alerts instead.
 
 > `GOOGLE_CLOUD_LOCATION` is the Vertex region used for **TTS** — `us-central1`
 > is the safest choice. **Gemini Live runs on the `global` Vertex endpoint**
@@ -56,9 +62,8 @@ gcloud run deploy hinata \
 > regional Live model works in your region. `asia-northeast1` is a good choice
 > for the Cloud Run service itself (Run/Firestore/Scheduler are all regional).
 
-`--source .` builds the root `Dockerfile` (at `backend/Dockerfile` — point build
-config there or add a root Dockerfile/cloudbuild.yaml that uses it; the image
-needs both `backend/` and `web/` in context).
+`--source .` builds the root `Dockerfile` (build context = repo root; the
+image needs both `backend/` and `web/`).
 
 > Note the Cloud Run service account needs `aiplatform.user` (Vertex Live/TTS),
 > `datastore.user` (Firestore) and `secretmanager.secretAccessor` on the secrets.
