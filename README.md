@@ -82,6 +82,18 @@ Deploy: see [docs/deploy.md](docs/deploy.md).
 - Agent action log (Firestore / in-memory). Quiet hours 22:00–07:00 JST suppress reminders.
 - No My Number or sensitive personal data collected.
 
+## 3D avatar (VRM)
+
+The tablet app renders a **3D VRM avatar** by default (three.js + `@pixiv/three-vrm`
+via CDN import map — no bundler). `web/models/hinata.vrm` is a placeholder model;
+to use the real Hinata, export a VRM from **VRoid Studio** (map the preset
+expressions `happy`/`sad`/`angry`/`surprised`/`relaxed` + visemes `aa`/`ih`/`ou`/`blink`)
+and overwrite that file. Features: audio-driven lip-sync, blinking, look-at wander,
+idle sway, arm wave while calling, eyes-closed standby, mood expressions.
+Fallbacks: `?avatar=svg` forces the SVG avatar; any VRM load failure (no WebGL,
+missing file, offline CDN) silently stays on SVG. The キャラクター buttons switch
+between 3D and SVG characters live.
+
 ## Submission checklist
 
 - [x] Avatar demo: expressions, lip-sync, standby, proactive call

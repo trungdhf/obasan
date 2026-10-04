@@ -496,9 +496,18 @@ async function boot() {
   serverCfg = await (await fetch('/api/config')).json().catch(() => ({}));
   loadConfig(serverCfg);
 
-  avatar = new Avatar({ stage: $('stage'), bubble: $('bubble'), statusText: $('statusText'), dot: $('dot') });
-  await avatar.loadPhotoAvatar($('stage'));
-  avatar.bindChar(document.getElementById(CONFIG.char) ? CONFIG.char : 'koharu');
+  try {
+    const mod = await import('./avatar3d.js'); // loads three.js only when used
+    avatar = await mod.createAvatar({
+      stage: $('stage'), bubble: $('bubble'), statusText: $('statusText'), dot: $('dot'),
+      char: CONFIG.char,
+    });
+  } catch (e) {
+    console.warn('[avatar] 3D init failed, SVG only:', e);
+    avatar = new Avatar({ stage: $('stage'), bubble: $('bubble'), statusText: $('statusText'), dot: $('dot') });
+    await avatar.loadPhotoAvatar($('stage'));
+    avatar.bindChar(document.getElementById(CONFIG.char) ? CONFIG.char : 'koharu');
+  }
   avatar.setState('active');
   setLiveBadge(false);
 

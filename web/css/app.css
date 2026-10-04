@@ -132,3 +132,10 @@ button:focus-visible{outline:3px solid var(--fur);outline-offset:2px}
 @media (prefers-reduced-motion: reduce){
   .breathe,.tail,.zzz text,.waving .paw,.dot.calling{animation:none!important}
 }
+
+/* 3D VRM avatar */
+.vrm-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
+.vrm-sleep{position:absolute;top:14px;right:22px;color:#C9D8F2;font-weight:700;font-size:34px;
+  font-family:"Zen Maru Gothic",sans-serif;opacity:.9;animation:zzzf 2.4s ease-in-out infinite;pointer-events:none}
+.vrm-sleep.hidden{display:none}
+@keyframes zzzf{50%{transform:translateY(-10px);opacity:.5}}
