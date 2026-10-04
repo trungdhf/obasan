@@ -1,0 +1,10 @@
+{
+  "name": "ひなた — おばあちゃんの見守り",
+  "short_name": "ひなた",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#E6EEF7",
+  "theme_color": "#2F4A7A",
+  "icons": []
+}

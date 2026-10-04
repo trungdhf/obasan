@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ひなた — おばあちゃんの見守り</title>
+<meta name="description" content="一人暮らしの高齢者に寄り添う、おしゃべり見守りアバター">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="overlay hidden" id="startOverlay">
+  <div class="card">
+    <h1>ひなた</h1>
+    <p>おばあちゃんの見守りアバターです。<br>タップしてはじめてください。<br>（カメラは顔があるかだけを検出します。<br>画像は外に送られません）</p>
+    <button id="startBtn">はじめる</button>
+  </div>
+</div>
+
+<main class="wrap">
+  <section class="stage" id="stage" aria-label="キャラクター">
+    <svg class="stars" viewBox="0 0 400 300" preserveAspectRatio="none" aria-hidden="true">
+      <g fill="#FFF3C4">
+        <circle cx="40" cy="40" r="1.6"/><circle cx="120" cy="22" r="1.2"/><circle cx="210" cy="50" r="1.8"/>
+        <circle cx="300" cy="28" r="1.3"/><circle cx="360" cy="70" r="1.6"/><circle cx="80" cy="100" r="1.1"/>
+        <circle cx="330" cy="120" r="1.2"/><circle cx="20" cy="150" r="1.4"/>
+      </g>
+      <circle cx="340" cy="45" r="16" fill="#FFF3C4"/><circle cx="348" cy="40" r="14" fill="#141C30"/>
+    </svg>
+    <div class="bubble" id="bubble" aria-live="polite">おばあちゃん、こんにちは！</div>
+
+    <svg class="char" id="koharu" viewBox="0 0 400 400" role="img" aria-label="犬のこはる" style="display:none">
+      <path class="tail" d="M300 300 C350 290 360 240 335 225 C325 250 310 265 290 275 Z" fill="var(--fur)" stroke="#4A3B32" stroke-width="5" stroke-linejoin="round"/>
+      <g class="breathe">
+        <ellipse cx="200" cy="320" rx="112" ry="70" fill="var(--fur)" stroke="#4A3B32" stroke-width="5"/>
+        <ellipse cx="200" cy="334" rx="62" ry="48" fill="var(--cream)"/>
+        <ellipse cx="150" cy="383" rx="26" ry="14" fill="var(--cream)" stroke="#4A3B32" stroke-width="4"/>
+        <ellipse cx="250" cy="383" rx="26" ry="14" fill="var(--cream)" stroke="#4A3B32" stroke-width="4"/>
+        <g class="paw">
+          <path d="M290 300 C300 270 312 250 322 248 C336 246 340 262 330 280 C322 296 310 310 298 318 Z" fill="var(--fur)" stroke="#4A3B32" stroke-width="5" stroke-linejoin="round"/>
+          <ellipse cx="328" cy="258" rx="10" ry="9" fill="var(--cream)"/>
+        </g>
+        <g class="head">
+          <path d="M92 130 L110 40 Q118 28 130 38 L175 95 Z" fill="var(--fur)" stroke="#4A3B32" stroke-width="5" stroke-linejoin="round"/>
+          <path d="M112 112 L120 60 L150 95 Z" fill="var(--cheek)" opacity=".7"/>
+          <path d="M308 130 L290 40 Q282 28 270 38 L225 95 Z" fill="var(--fur)" stroke="#4A3B32" stroke-width="5" stroke-linejoin="round"/>
+          <path d="M288 112 L280 60 L250 95 Z" fill="var(--cheek)" opacity=".7"/>
+          <ellipse cx="200" cy="180" rx="132" ry="112" fill="var(--fur)" stroke="#4A3B32" stroke-width="5"/>
+          <ellipse cx="200" cy="222" rx="88" ry="62" fill="var(--cream)"/>
+          <ellipse cx="150" cy="150" rx="18" ry="8" fill="var(--cream)" opacity=".9"/>
+          <ellipse cx="250" cy="150" rx="18" ry="8" fill="var(--cream)" opacity=".9"/>
+          <g class="brows" stroke="#4A3B32" stroke-width="5" stroke-linecap="round">
+            <path d="M132 156 L162 166"/><path d="M268 156 L238 166"/>
+          </g>
+          <g class="eyes-open">
+            <ellipse cx="148" cy="188" rx="12" ry="15" fill="#33291F"/>
+            <ellipse cx="252" cy="188" rx="12" ry="15" fill="#33291F"/>
+            <circle cx="152" cy="182" r="4.5" fill="#fff"/><circle cx="256" cy="182" r="4.5" fill="#fff"/>
+          </g>
+          <g class="eyes-happy" fill="none" stroke="#33291F" stroke-width="6" stroke-linecap="round">
+            <path d="M134 194 Q148 174 162 194"/><path d="M238 194 Q252 174 266 194"/>
+          </g>
+          <g class="eyes-sleep" fill="none" stroke="#33291F" stroke-width="6" stroke-linecap="round">
+            <path d="M134 186 Q148 200 162 186"/><path d="M238 186 Q252 200 266 186"/>
+          </g>
+          <ellipse cx="120" cy="222" rx="18" ry="11" fill="var(--cheek)" opacity=".75"/>
+          <ellipse cx="280" cy="222" rx="18" ry="11" fill="var(--cheek)" opacity=".75"/>
+          <g>
+            <ellipse class="mouth-hole" data-cy="240" cx="200" cy="240" rx="16" ry="0" fill="#7A2E2E"/>
+            <ellipse class="mouth-tongue" data-cy="240" cx="200" cy="246" rx="10" ry="0" fill="#EE8C8C"/>
+          </g>
+          <path d="M188 206 Q200 200 212 206 Q206 220 200 220 Q194 220 188 206 Z" fill="#33291F"/>
+          <path d="M184 230 Q192 240 200 230 Q208 240 216 230" fill="none" stroke="#33291F" stroke-width="5" stroke-linecap="round"/>
+        </g>
+      </g>
+      <g class="zzz" fill="#C9D8F2" font-family="Zen Maru Gothic, sans-serif" font-weight="700">
+        <text x="300" y="90" font-size="26">z</text>
+        <text x="320" y="70" font-size="32">z</text>
+        <text x="342" y="48" font-size="38">Z</text>
+      </g>
+    </svg>
+
+    <svg class="char" id="hinata" viewBox="0 0 400 400" role="img" aria-label="女の子ひなた" style="display:none">
+      <g class="breathe">
+        <g class="head">
+          <path d="M92 150 C40 150 28 230 52 280 C60 300 82 300 86 280 C92 250 96 210 112 178 Z" fill="#6B3F2A" stroke="#3B2E28" stroke-width="5" stroke-linejoin="round"/>
+          <path d="M308 150 C360 150 372 230 348 280 C340 300 318 300 314 280 C308 250 304 210 288 178 Z" fill="#6B3F2A" stroke="#3B2E28" stroke-width="5" stroke-linejoin="round"/>
+        </g>
+        <path d="M100 400 Q104 306 200 296 Q296 306 300 400 Z" fill="#F7B9C9" stroke="#3B2E28" stroke-width="5" stroke-linejoin="round"/>
+        <rect x="186" y="278" width="28" height="26" rx="8" fill="#FFE3CF"/>
+        <path d="M150 304 Q175 300 200 318 Q225 300 250 304 Q240 336 200 330 Q160 336 150 304 Z" fill="#FFFFFF" stroke="#3B2E28" stroke-width="4" stroke-linejoin="round"/>
+        <path d="M188 322 Q200 312 212 322 Q200 334 188 322 Z" fill="#E8546E"/>
+        <circle cx="200" cy="322" r="4" fill="#C93C57"/>
+        <g fill="#FFFFFF" opacity=".75"><circle cx="150" cy="365" r="5"/><circle cx="250" cy="372" r="5"/><circle cx="200" cy="385" r="4"/></g>
+        <g class="paw">
+          <path d="M282 330 C292 300 302 282 312 274 L330 286 C322 300 312 320 300 340 Z" fill="#F7B9C9" stroke="#3B2E28" stroke-width="5" stroke-linejoin="round"/>
+          <circle cx="322" cy="266" r="16" fill="#FFE3CF" stroke="#3B2E28" stroke-width="4"/>
+        </g>
+        <g class="head">
+          <ellipse cx="200" cy="174" rx="118" ry="116" fill="#6B3F2A" stroke="#3B2E28" stroke-width="5"/>
+          <circle cx="92" cy="160" r="13" fill="#E8546E" stroke="#3B2E28" stroke-width="4"/>
+          <circle cx="308" cy="160" r="13" fill="#E8546E" stroke="#3B2E28" stroke-width="4"/>
+          <ellipse cx="200" cy="200" rx="100" ry="92" fill="#FFE3CF" stroke="#3B2E28" stroke-width="5"/>
+          <path d="M104 160 Q96 220 112 262 Q122 230 126 190 Z" fill="#6B3F2A"/>
+          <path d="M296 160 Q304 220 288 262 Q278 230 274 190 Z" fill="#6B3F2A"/>
+          <path d="M100 178 Q102 84 200 78 Q298 84 300 178 Q284 144 262 150 Q250 128 230 148 Q212 122 196 146 Q178 124 160 150 Q140 134 120 156 Q108 164 100 178 Z" fill="#6B3F2A"/>
+          <g transform="translate(262 112)">
+            <circle cx="0" cy="-10" r="9" fill="#FFD36B"/><circle cx="10" cy="-2" r="9" fill="#FFD36B"/>
+            <circle cx="6" cy="10" r="9" fill="#FFD36B"/><circle cx="-6" cy="10" r="9" fill="#FFD36B"/>
+            <circle cx="-10" cy="-2" r="9" fill="#FFD36B"/><circle cx="0" cy="1" r="6" fill="#F28C3A"/>
+          </g>
+          <g class="brows" stroke="#6B3F2A" stroke-width="5" stroke-linecap="round">
+            <path d="M142 176 L170 184"/><path d="M258 176 L230 184"/>
+          </g>
+          <g class="eyes-open">
+            <ellipse cx="158" cy="210" rx="15" ry="19" fill="#3A2A24"/>
+            <ellipse cx="242" cy="210" rx="15" ry="19" fill="#3A2A24"/>
+            <ellipse cx="158" cy="218" rx="10" ry="7" fill="#7A4A3A"/>
+            <ellipse cx="242" cy="218" rx="10" ry="7" fill="#7A4A3A"/>
+            <circle cx="164" cy="202" r="6" fill="#fff"/><circle cx="248" cy="202" r="6" fill="#fff"/>
+            <circle cx="153" cy="217" r="2.6" fill="#fff"/><circle cx="237" cy="217" r="2.6" fill="#fff"/>
+            <g fill="none" stroke="#3A2A24" stroke-width="5" stroke-linecap="round">
+              <path d="M174 200 Q158 186 142 198 L135 194"/><path d="M226 200 Q242 186 258 198 L265 194"/>
+            </g>
+          </g>
+          <g class="eyes-happy" fill="none" stroke="#3A2A24" stroke-width="6" stroke-linecap="round">
+            <path d="M144 216 Q158 196 172 216"/><path d="M228 216 Q242 196 256 216"/>
+          </g>
+          <g class="eyes-sleep" fill="none" stroke="#3A2A24" stroke-width="6" stroke-linecap="round">
+            <path d="M144 208 Q158 222 172 208"/><path d="M228 208 Q242 222 256 208"/>
+          </g>
+          <ellipse cx="126" cy="244" rx="19" ry="11" fill="#F7A1A1" opacity=".8"/>
+          <ellipse cx="274" cy="244" rx="19" ry="11" fill="#F7A1A1" opacity=".8"/>
+          <circle cx="200" cy="234" r="3" fill="#E0A88C"/>
+          <g>
+            <ellipse class="mouth-hole" data-cy="257" cx="200" cy="257" rx="13" ry="0" fill="#8A3A3A"/>
+            <ellipse class="mouth-tongue" data-cy="257" cx="200" cy="263" rx="8" ry="0" fill="#F29A9A"/>
+          </g>
+          <path d="M189 253 Q200 262 211 253" fill="none" stroke="#3B2E28" stroke-width="4.5" stroke-linecap="round"/>
+        </g>
+      </g>
+      <g class="zzz" fill="#C9D8F2" font-family="Zen Maru Gothic, sans-serif" font-weight="700">
+        <text x="300" y="90" font-size="26">z</text>
+        <text x="320" y="70" font-size="32">z</text>
+        <text x="342" y="48" font-size="38">Z</text>
+      </g>
+    </svg>
+    <!-- #photo (Hinata expression set) is injected from assets/hinata-avatar.svg -->
+  </section>
+
+  <section class="panel" aria-label="パネル">
+    <div>
+      <h1>ひなた — 見守りアバター</h1>
+      <p>顔を見つけると起きて、おしゃべりします。いなくなるとおやすみします。</p>
+    </div>
+
+    <div class="group">
+      <div class="status">
+        <span class="dot" id="dot"></span><span id="statusText">おはなし中</span>
+        <span class="badge" id="liveBadge">…</span>
+        <span class="badge" id="camBadge">…</span>
+      </div>
+      <div class="meter" aria-hidden="true"><span id="meter"></span></div>
+      <p class="note" id="timerText"></p>
+      <video id="cam" playsinline muted aria-hidden="true"></video>
+    </div>
+
+    <div class="group">
+      <h2>キャラクター</h2>
+      <div class="btns" id="charBtns">
+        <button data-char="photo">ひなた（表情セット）</button>
+        <button data-char="hinata">ひなた（イラスト）</button>
+        <button data-char="koharu">こはる（犬）</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>動作テスト</h2>
+      <div class="btns">
+        <button id="standbyBtn">おやすみ／おきる</button>
+        <button class="primary" id="callBtn">呼びかけテスト</button>
+        <button id="arriveBtn">応答をシミュレート</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>表情（手動テスト）</h2>
+      <div class="btns" id="moodBtns">
+        <button data-mood="normal">ふつう</button>
+        <button data-mood="happy">うれしい</button>
+        <button data-mood="sad">かなしい</button>
+        <button data-mood="worried">しんぱい</button>
+        <button data-mood="pout">ぷんぷん</button>
+        <button data-mood="scared">こわい</button>
+        <button data-mood="surprised">びっくり</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>ひなたの行動ログ</h2>
+      <ul class="log" id="log"></ul>
+    </div>
+  </section>
+</main>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

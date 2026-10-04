@@ -1,0 +1,93 @@
+# ひなた (Hinata) — obasan
+
+見守りアバター: a tablet companion avatar that talks by voice with elderly people
+living alone in Japan. Hinata proactively checks in, reminds about medicine and
+water, and alerts family over LINE when something seems wrong — an agent that
+decides when to speak, when to sleep, and when to call the family, not a chatbot
+waiting for questions.
+
+Google Zen hackathon 2026 entry. Submission deadline: **2026-10-15**.
+
+## Repo layout
+
+| Path | What |
+| --- | --- |
+| `web/` | Tablet app (Android Chrome kiosk): avatar, MediaPipe presence, Gemini Live client, Wake Lock |
+| `backend/` | Cloud Run service: agent logic, LINE webhook, proactive-call triggers, static hosting of `web/` |
+| `docs/` | [Design summary](docs/hinata-design.md) · [Architecture](docs/architecture.md) · [Deploy guide](docs/deploy.md) · [Demo script](docs/demo-script.md) · original [avatar demo](docs/koharu-avatar-demo.html) |
+
+## How it works
+
+```mermaid
+flowchart LR
+  subgraph Tablet["Tablet (web app, kiosk)"]
+    A[Avatar UI<br/>7 expressions, lip-sync]
+    P[MediaPipe FaceDetector<br/>on-device only]
+    L[Live client<br/>mic PCM 16k → audio 24k]
+  end
+  subgraph Backend["Cloud Run"]
+    T[/api/token<br/>ephemeral tokens/]
+    E[/api/events<br/>SSE to tablet/]
+    W[/webhook/line/]
+    J[/jobs/due<br/>quiet hours/]
+  end
+  GL[Gemini Live<br/>native-audio dialog]
+  GT[Gemini Flash TTS]
+  FS[(Firestore)]
+  CS[Cloud Scheduler]
+  LINE[LINE family group]
+
+  P --> A
+  L <-->|WebSocket, ephemeral token| GL
+  T --> L
+  E --> A
+  CS --> J --> E
+  W --> E
+  J --> FS
+  Backend --> LINE
+  A -->|/api/tts| GT
+```
+
+Camera frames never leave the tablet; only a present/absent boolean is reported.
+The Live session uses a short-lived **ephemeral token** minted by the backend, so
+no API key ships to the device. When grandma is away for ~45 s the session closes
+and Hinata sleeps — cost stays low; when she comes back, a fresh session resumes
+with the stored conversation summary.
+
+## Agent tools (declared to Gemini Live)
+
+`set_emotion` (avatar face) · `notify_family` (LINE push) · `schedule_reminder`
+· `get_weather_alert` · `save_memory` (conversation summary)
+
+## Run locally
+
+```bash
+cd backend
+cp .env.example .env   # fill in what you have — everything is optional
+npm install
+npm start              # → http://localhost:8080
+```
+
+With no env vars the app runs in **demo mode**: avatar, standby/calling state
+machine, MediaPipe presence and LINE/tool stubs all work; voice falls back to
+browser speech synthesis. Set `GEMINI_API_KEY` for real Gemini Live + TTS.
+
+Deploy: see [docs/deploy.md](docs/deploy.md).
+
+## Safety
+
+- Camera frames processed on-device only (MediaPipe). No images are sent anywhere.
+- LINE messages from family are treated as **data to relay**, never commands.
+- A human (family) decides after alerts — the agent only notifies.
+- Agent action log (Firestore / in-memory). Quiet hours 22:00–07:00 JST suppress reminders.
+- No My Number or sensitive personal data collected.
+
+## Submission checklist
+
+- [x] Avatar demo: expressions, lip-sync, standby, proactive call
+- [x] Repo scaffold + backend (token, SSE, LINE webhook, reminders)
+- [x] MediaPipe face detection (on-device)
+- [x] Gemini Live wiring (ephemeral token) — needs a funded API key
+- [ ] Deploy to Cloud Run (needs GCP project) — see docs/deploy.md
+- [ ] LINE channel for the family group — see docs/deploy.md
+- [ ] ~3 min demo video — see docs/demo-script.md
