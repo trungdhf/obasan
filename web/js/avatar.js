@@ -94,7 +94,7 @@ export class Avatar {
     this.stage.classList.toggle('night', state === 'standby');
     this.dot.className = 'dot' + (state === 'standby' ? ' standby' : state === 'calling' ? ' calling' : '');
     this.statusText.textContent = state === 'active' ? 'おはなし中' :
-      state === 'standby' ? 'おやすみ中（待機）' : 'おばあちゃんを呼んでいます…';
+      state === 'standby' ? 'おやすみ中' : '呼びかけ中…';
   }
 
   // Show a line in the speech bubble and mark the avatar "speaking" for the

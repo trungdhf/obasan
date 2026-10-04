@@ -102,6 +102,7 @@ let serverCfg = {};
 let lastFace = performance.now();
 let faceStreak = 0, faceSeen = false;
 let callTimer = null, callCount = 0, currentCall = null;
+let standbyTimer = null; // pending transition into standby (farewell in progress)
 let transcriptBuf = '';
 let wakeLock = null;
 
@@ -292,6 +293,7 @@ function earLevel() {
 // ---------- state machine ----------
 function goActive(reason) {
   clearTimeout(callTimer); callCount = 0; currentCall = null;
+  clearTimeout(standbyTimer); standbyTimer = null; // cancel a farewell in progress
   avatar.setState('active');
   lastFace = performance.now();
   avatar.setMood('happy');
@@ -313,11 +315,14 @@ function goStandby(reason) {
   const bye = L().bye;
   if (live?.connected) {
     live.sendText(`（システム）おばあちゃんがいなくなりました。「${bye}」とだけ言って。`);
-    setTimeout(closeLive, 2500);
+    const sess = live;
+    setTimeout(() => { if (live === sess) closeLive(); }, 2500); // don't kill a session reopened by goActive
   } else {
     speakFallback(bye);
   }
-  setTimeout(() => {
+  clearTimeout(standbyTimer);
+  standbyTimer = setTimeout(() => {
+    standbyTimer = null;
     avatar.setState('standby');
     avatar.hideBubble();
   }, 1800);
@@ -326,6 +331,7 @@ function goStandby(reason) {
 
 function startCall(call) {
   if (avatar.state === 'calling') return;
+  clearTimeout(standbyTimer); standbyTimer = null; // a call pre-empts pending standby
   currentCall = call;
   avatar.setState('calling');
   callCount = 0;
@@ -336,13 +342,21 @@ function startCall(call) {
 async function callOnce() {
   if (avatar.state !== 'calling') return;
   if (callCount >= CONFIG.callAttempts) {
-    await fetch('/api/call-result', {
+    const r = await fetch('/api/call-result', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: currentCall?.id, responded: false }),
-    });
-    avatar.say('（ご家族にLINEでお知らせしました）');
-    log(`${CONFIG.callAttempts}回呼んで応答なし → 家族にLINE通知`);
-    setTimeout(() => { avatar.setState('standby'); avatar.hideBubble(); }, 2500);
+    }).catch(() => null);
+    const result = r?.ok ? await r.json() : {};
+    avatar.say(result.delivered
+      ? '（ご家族にLINEでお知らせしました）'
+      : '（LINE未設定のため、家族への通知は記録のみです）');
+    log(`${CONFIG.callAttempts}回呼んで応答なし → 家族にLINE通知${result.delivered ? '' : '（デモ：記録のみ）'}`);
+    clearTimeout(standbyTimer);
+    standbyTimer = setTimeout(() => {
+      standbyTimer = null;
+      avatar.setState('standby');
+      avatar.hideBubble();
+    }, 2500);
     return;
   }
   const text = currentCall?.text || L().calls[Math.min(callCount, L().calls.length - 1)];
@@ -388,7 +402,7 @@ function onFace(hasFace) {
     if (!faceSeen && faceStreak > 800) {
       faceSeen = true;
       reportPresence(true, 'camera');
-      if (avatar.state === 'standby') goActive('顔を検出');
+      if (avatar.state === 'standby' || standbyTimer) goActive('顔を検出');
       else if (avatar.state === 'calling') answerCall('おばあちゃんが来た');
     }
   } else {
@@ -427,7 +441,7 @@ function frame(now) {
   // voice wake while standby / call answer by voice
   const rms = earLevel();
   if (rms > 0.04) voiceStreak++; else voiceStreak = 0;
-  if (avatar.state === 'standby' && voiceStreak > 40) goActive('声を検出');
+  if ((avatar.state === 'standby' || standbyTimer) && voiceStreak > 40) goActive('声を検出');
   if (avatar.state === 'calling' && voiceStreak > 25) answerCall('声で応答');
   // mic presence fallback when camera unavailable: voice resets the idle clock
   if (presence?.mode !== 'camera' && avatar.state === 'active' && voiceStreak > 5) lastFace = now;
@@ -460,23 +474,24 @@ async function boot() {
   await avatar.loadPhotoAvatar($('stage'));
   avatar.bindChar(document.getElementById(CONFIG.char) ? CONFIG.char : 'koharu');
   avatar.setState('active');
+  setLiveBadge(false);
 
   presence = new Presence({
     video: $('cam'),
     onFace,
     onMode: (mode, detail) => {
-      $('camBadge').textContent = mode === 'camera' ? 'カメラ 顔検出中' : 'カメラなし（声で検出）';
+      $('camBadge').textContent = mode === 'camera' ? 'カメラ 顔検出中' : 'カメラなし';
       if (mode !== 'camera') log('カメラ/顔検出なし → 声ベースの待機に切替');
     },
   });
 
   // dev / demo buttons
   $('standbyBtn').addEventListener('click', () =>
-    avatar.state === 'standby' ? goActive('画面タッチ') : goStandby('手動'));
+    avatar.state === 'standby' || standbyTimer ? goActive('画面タッチ') : goStandby('手動'));
   $('callBtn').addEventListener('click', () =>
     fetch('/api/call', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: 'おばあちゃ〜ん、おみずのんだ？', reason: 'manual' }),
+      body: JSON.stringify({ text: 'おばあちゃ〜ん、おみずのんだ？', reason: '手動テスト' }),
     }));
   $('arriveBtn').addEventListener('click', () =>
     avatar.state === 'calling' ? answerCall('手動') : goActive('手動'));

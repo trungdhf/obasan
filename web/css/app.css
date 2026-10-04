@@ -85,11 +85,12 @@ svg.char[hidden],svg.char[style*="none"]{display:none}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:18px;display:grid;gap:16px}
 .panel h1{font-size:1.25rem;margin:0;line-height:1.3}
 .panel p{margin:0;color:var(--ink-soft);font-size:.95rem;line-height:1.6}
-.status{display:flex;align-items:center;gap:10px;font-weight:700;flex-wrap:wrap}
+.status{display:flex;align-items:center;gap:10px;font-weight:700;flex-wrap:nowrap;min-height:28px}
+#statusText{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dot{width:12px;height:12px;border-radius:50%;background:var(--ok);flex:none}
 .dot.standby{background:#7B8BA8}.dot.calling{background:var(--warn);animation:pulse 1s infinite}
 @keyframes pulse{50%{opacity:.35}}
-.badge{font-size:.78rem;font-weight:700;border-radius:999px;padding:3px 10px;background:var(--ai-soft);color:var(--ai)}
+.badge{font-size:.78rem;font-weight:700;border-radius:999px;padding:3px 10px;background:var(--ai-soft);color:var(--ai);white-space:nowrap;flex:none}
 .badge.on{background:var(--ok);color:#fff}
 .meter{height:10px;border-radius:6px;background:var(--ai-soft);overflow:hidden}
 .meter span{display:block;height:100%;width:0;background:var(--ai);transition:width .05s linear}

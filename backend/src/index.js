@@ -155,10 +155,11 @@ app.post('/api/call', async (req, res) => {
 app.post('/api/call-result', async (req, res) => {
   const { id, responded } = req.body || {};
   await store.log({ type: 'call_result', id, responded: Boolean(responded) });
+  let result = {};
   if (!responded) {
-    await line.pushFamily('【ひなた】おばあちゃんに3回声をかけましたが応答がありません。様子を確認してください。');
+    result = await line.pushFamily('【ひなた】おばあちゃんに3回声をかけましたが応答がありません。様子を確認してください。');
   }
-  res.json({ ok: true });
+  res.json({ ok: true, ...result });
 });
 
 // Cloud Scheduler entrypoint: fire due reminders → proactive calls.
