@@ -1,36 +1,55 @@
-// Gemini helpers: short-lived ephemeral tokens so the tablet can open a Gemini
-// Live session directly (no API key on the device), and Flash TTS for the
-// pre-generated proactive-call lines.
+// Gemini helpers. Two modes:
+//  - Vertex AI (GOOGLE_CLOUD_PROJECT set): Gemini Live via OAuth access tokens
+//    minted server-side (service account on Cloud Run / ADC locally) — this is
+//    the mode hackathon Google Cloud credits pay for.
+//  - AI Studio (GEMINI_API_KEY): ephemeral tokens via authTokens.create.
+// Neither credential ever ships to the tablet; it only gets a short-lived token.
 
 import { GoogleGenAI } from '@google/genai';
+import { GoogleAuth } from 'google-auth-library';
 
 const API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
+const PROJECT = process.env.GOOGLE_CLOUD_PROJECT || '';
+const LOCATION = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
 const TTS_MODEL = process.env.TTS_MODEL || 'gemini-2.5-flash-preview-tts';
 const TTS_VOICE = process.env.TTS_VOICE || 'Leda';
 
+const VERTEX = Boolean(PROJECT);
+export function isVertex() { return VERTEX; }
+export function vertexLocation() { return LOCATION; }
+export function geminiEnabled() { return VERTEX || Boolean(API_KEY); }
+
 let ai = null;
-export function geminiEnabled() {
-  return Boolean(API_KEY);
-}
 if (geminiEnabled()) {
-  ai = new GoogleGenAI({ apiKey: API_KEY });
+  ai = VERTEX
+    ? new GoogleGenAI({ vertexai: true, project: PROJECT, location: LOCATION })
+    : new GoogleGenAI({ apiKey: API_KEY });
+  console.log(`[gemini] mode=${VERTEX ? `vertex:${PROJECT}/${LOCATION}` : 'ai-studio'}`);
 } else {
-  console.log('[gemini] GEMINI_API_KEY not set — token/TTS endpoints will report demo mode');
+  console.log('[gemini] no GOOGLE_CLOUD_PROJECT or GEMINI_API_KEY — token/TTS endpoints will report demo mode');
 }
 
-// Ephemeral token for a single Live session. The tablet uses it as the apiKey
-// with BidiGenerateContentConstrained on v1alpha.
+// Token the tablet trades for a direct Live session.
+// Vertex: OAuth access token (~1h, used as ?access_token= on the WS URL).
+// AI Studio: ephemeral token (single-use, 30 min) via authTokens.create.
 export async function createLiveToken() {
   if (!ai) return null;
+  if (VERTEX) {
+    const auth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/cloud-platform'] });
+    const client = await auth.getClient();
+    const { token } = await client.getAccessToken();
+    if (!token) throw new Error('no access token (check ADC / service account)');
+    return { token, vertex: true, location: LOCATION, project: PROJECT };
+  }
   const now = Date.now();
-  const token = await ai.authTokens.create({
+  const t = await ai.authTokens.create({
     config: {
       uses: 1,
       expireTime: new Date(now + 30 * 60_000).toISOString(),      // token valid 30 min
       newSessionExpireTime: new Date(now + 2 * 60_000).toISOString() // session must start within 2 min
     }
   });
-  return token.name;
+  return { token: t.name, vertex: false };
 }
 
 const ttsCache = new Map(); // text -> { data, mimeType, at }

@@ -12,8 +12,14 @@ gcloud config set project $PROJECT_ID
 
 ```bash
 gcloud services enable run.googleapis.com firestore.googleapis.com \
-  cloudscheduler.googleapis.com cloudbuild.googleapis.com secretmanager.googleapis.com
+  cloudscheduler.googleapis.com cloudbuild.googleapis.com secretmanager.googleapis.com \
+  aiplatform.googleapis.com
 ```
+
+> **Vertex AI** (`aiplatform`) is what the hackathon's Google Cloud credits pay
+> for — with `GOOGLE_CLOUD_PROJECT` set, the backend runs Gemini Live + TTS
+> through Vertex using the Cloud Run service account, and no Gemini API key is
+> needed at all.
 
 Create Firestore (Native mode) once in the console or:
 
@@ -24,11 +30,13 @@ gcloud firestore databases create --location=$REGION
 ## 2. Secrets
 
 ```bash
-echo -n "$GEMINI_API_KEY"          | gcloud secrets create gemini-api-key   --data-file=-
 echo -n "$LINE_CHANNEL_SECRET"     | gcloud secrets create line-secret      --data-file=-
 echo -n "$LINE_CHANNEL_TOKEN"      | gcloud secrets create line-token       --data-file=-
 echo -n "$(openssl rand -hex 24)"  | gcloud secrets create job-secret       --data-file=-
 ```
+
+(Gemini needs no secret in Vertex mode. If you also want AI-Studio fallback,
+store `GEMINI_API_KEY` the same way — Vertex wins when the project is set.)
 
 ## 3. Deploy Cloud Run
 
@@ -37,18 +45,25 @@ gcloud run deploy hinata \
   --source . \
   --region $REGION \
   --allow-unauthenticated \
-  --set-env-vars "GOOGLE_CLOUD_PROJECT=$PROJECT_ID,QUIET_HOURS=22-7,IDLE_TO_STANDY_SEC=45" \
-  --set-secrets "GEMINI_API_KEY=gemini-api-key:latest,LINE_CHANNEL_SECRET=line-secret:latest,LINE_CHANNEL_ACCESS_TOKEN=line-token:latest,JOB_SECRET=job-secret:latest"
+  --set-env-vars "GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=$REGION,QUIET_HOURS=22-7,IDLE_TO_STANDY_SEC=45" \
+  --set-secrets "LINE_CHANNEL_SECRET=line-secret:latest,LINE_CHANNEL_ACCESS_TOKEN=line-token:latest,JOB_SECRET=job-secret:latest"
 ```
+
+> `GOOGLE_CLOUD_LOCATION` is the Vertex region — `us-central1` is the safest
+> choice for the native-audio Live model; `asia-northeast1` also works for
+> Run/Firestore/Scheduler. You may deploy to two regions or use one region for
+> everything if the model is available there.
 
 `--source .` builds the root `Dockerfile` (at `backend/Dockerfile` — point build
 config there or add a root Dockerfile/cloudbuild.yaml that uses it; the image
 needs both `backend/` and `web/` in context).
 
-> Note the Cloud Run service account needs `datastore.user` (Firestore) and
-> `secretmanager.secretAccessor` on the four secrets. Grant once:
+> Note the Cloud Run service account needs `aiplatform.user` (Vertex Live/TTS),
+> `datastore.user` (Firestore) and `secretmanager.secretAccessor` on the secrets.
+> Grant once:
 > ```bash
 > SA=$(gcloud run services describe hinata --region $REGION --format='value(spec.template.spec.serviceAccountName)')
+> gcloud projects add-iam-policy-binding $PROJECT_ID --member="serviceAccount:$SA" --role=roles/aiplatform.user
 > gcloud projects add-iam-policy-binding $PROJECT_ID --member="serviceAccount:$SA" --role=roles/datastore.user
 > ```
 
@@ -81,6 +96,7 @@ gcloud scheduler jobs create http hinata-due \
 
 ## Env reference
 
-See `backend/.env.example`. Minimum for the real experience:
-`GEMINI_API_KEY`, `GOOGLE_CLOUD_PROJECT`, `LINE_CHANNEL_SECRET`,
-`LINE_CHANNEL_ACCESS_TOKEN`, `LINE_TARGET_IDS`, `JOB_SECRET`.
+See `backend/.env.example`. Minimum for the real experience (Vertex mode):
+`GOOGLE_CLOUD_PROJECT`, `LINE_CHANNEL_SECRET`, `LINE_CHANNEL_ACCESS_TOKEN`,
+`LINE_TARGET_IDS`, `JOB_SECRET` — plus `aiplatform.user` on the service account.
+`GEMINI_API_KEY` is only needed for AI-Studio local dev without GCP.

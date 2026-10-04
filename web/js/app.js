@@ -186,13 +186,14 @@ async function openLive() {
       fetch('/api/token'), fetch('/api/memory'),
     ]);
     if (!tokenRes.ok) { CONFIG.demo = true; log('Liveキー未設定 → デモ音声モード'); return; }
-    const { token, model } = await tokenRes.json();
+    const { token, model, vertex, location, project } = await tokenRes.json();
     const { memory } = await memRes.json();
     const prompt = SYSTEM_PROMPT
       .replace('{{NOW}}', new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }))
       .replace('{{MEMORY}}', memory?.summary || '（はじめての会話）');
     live = new LiveSession({
-      token, model, voice: serverCfg.liveVoice || 'Leda',
+      token, model, vertex, location, project,
+      voice: serverCfg.liveVoice || 'Leda',
       systemPrompt: prompt, tools: TOOLS,
       handlers: {
         onOpen: () => { log('Gemini Live 接続'); setLiveBadge(true); },

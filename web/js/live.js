@@ -1,9 +1,14 @@
-// Gemini Live client — minimal raw-WebSocket implementation of
-// BidiGenerateContentConstrained (ephemeral-token sessions, v1alpha).
+// Gemini Live client — minimal raw-WebSocket implementation of the Live
+// bidi protocol. Two endpoints:
+//  - AI Studio: BidiGenerateContentConstrained + ephemeral token (?key=)
+//  - Vertex AI: LlmBidiService.BidiGenerateContent + OAuth token (?access_token=)
 // Mic → 16kHz PCM up; model audio → 24kHz PCM playback with an analyser
 // feeding the avatar's lip-sync. No SDK dependency in the browser.
 
 const WS_URL = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained';
+function vertexWsUrl(location) {
+  return `wss://${location}-aiplatform.googleapis.com/ws/google.cloud.aiplatform.v1beta1.LlmBidiService.BidiGenerateContent`;
+}
 const IN_RATE = 16000;
 const OUT_RATE = 24000;
 
@@ -49,8 +54,11 @@ registerProcessor('pcm-cap', PcmCap);`;
 export class LiveSession {
   // handlers: onOpen, onClose(reason), onError(err), onTranscript(text, turnComplete),
   //           onInputTranscript(text), onToolCall(call), onInterrupted
-  constructor({ token, model, voice, systemPrompt, tools, handlers }) {
+  constructor({ token, model, voice, systemPrompt, tools, handlers, vertex, location, project }) {
     this.token = token;
+    this.vertex = Boolean(vertex);
+    this.location = location || 'us-central1';
+    this.project = project || '';
     this.model = model;
     this.voice = voice;
     this.systemPrompt = systemPrompt;
@@ -70,8 +78,11 @@ export class LiveSession {
     await this._startPlayback();
     await this._startMic();
     return new Promise((resolve, reject) => {
-      const ws = new WebSocket(`${WS_URL}?key=${encodeURIComponent(this.token)}`);
+      const ws = new WebSocket(this.vertex
+        ? `${vertexWsUrl(this.location)}?access_token=${encodeURIComponent(this.token)}`
+        : `${WS_URL}?key=${encodeURIComponent(this.token)}`);
       this.ws = ws;
+      ws.onopen = () => this._sendSetup();
       const timeout = setTimeout(() => reject(new Error('Live setup timeout')), 15000);
       ws.onmessage = (ev) => this._onMessage(ev, () => { clearTimeout(timeout); resolve(); });
       ws.onerror = () => { clearTimeout(timeout); reject(new Error('Live socket error')); };
@@ -84,6 +95,25 @@ export class LiveSession {
 
   _send(obj) {
     if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(obj));
+  }
+
+  _sendSetup() {
+    const model = this.vertex
+      ? `projects/${this.project}/locations/${this.location}/publishers/google/models/${this.model}`
+      : `models/${this.model}`;
+    this._send({
+      setup: {
+        model,
+        generationConfig: {
+          responseModalities: ['AUDIO'],
+          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: this.voice } } },
+        },
+        systemInstruction: { parts: [{ text: this.systemPrompt }] },
+        tools: this.tools,
+        inputAudioTranscription: {},
+        outputAudioTranscription: {},
+      },
+    });
   }
 
   _onMessage(ev, onReady) {

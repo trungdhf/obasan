@@ -45,19 +45,26 @@ app.get('/api/config', (_req, res) => {
   res.json({
     demo: DEMO,
     line: line.lineEnabled(),
+    vertex: gemini.isVertex(),
     idleToStandbySec: IDLE_TO_STANDBY_SEC,
     callAttempts: CALL_ATTEMPTS,
-    liveModel: process.env.LIVE_MODEL || 'gemini-2.5-flash-preview-native-audio-dialog',
+    liveModel: liveModel(),
     liveVoice: process.env.LIVE_VOICE || 'Leda',
   });
 });
 
 // Short-lived token the tablet trades for a direct Gemini Live session.
+function liveModel() {
+  return process.env.LIVE_MODEL || (gemini.isVertex()
+    ? 'gemini-live-2.5-flash-preview-native-audio-09-2025'
+    : 'gemini-2.5-flash-preview-native-audio-dialog');
+}
+
 app.get('/api/token', async (_req, res) => {
   try {
-    const token = await gemini.createLiveToken();
-    if (!token) return res.status(503).json({ error: 'demo', message: 'GEMINI_API_KEY not configured' });
-    res.json({ token, model: process.env.LIVE_MODEL || 'gemini-2.5-flash-preview-native-audio-dialog' });
+    const tok = await gemini.createLiveToken();
+    if (!tok) return res.status(503).json({ error: 'demo', message: 'no GEMINI_API_KEY or GOOGLE_CLOUD_PROJECT configured' });
+    res.json({ ...tok, model: liveModel() });
   } catch (e) {
     console.error('[token]', e);
     res.status(502).json({ error: 'token_failed', message: e.message });
