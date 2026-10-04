@@ -204,6 +204,7 @@ async function openLive() {
           if (done) transcriptBuf = '';
         },
         onToolCall: handleToolCall,
+        onError: (e) => { console.warn('[live]', e); log(`Live エラー: ${e.message || e}`); },
       },
     });
     await live.connect();

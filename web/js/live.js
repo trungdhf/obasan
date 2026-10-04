@@ -91,6 +91,7 @@ export class LiveSession {
         : `${WS_URL}?access_token=${encodeURIComponent(this.token)}`);
       this.ws = ws;
       ws.onopen = () => this._sendSetup();
+      ws.binaryType = 'arraybuffer';
       const timeout = setTimeout(() => reject(new Error('Live setup timeout')), 15000);
       ws.onmessage = (ev) => this._onMessage(ev, () => { clearTimeout(timeout); resolve(); });
       ws.onerror = () => { clearTimeout(timeout); reject(new Error('Live socket error')); };
@@ -124,8 +125,24 @@ export class LiveSession {
     });
   }
 
+  // Vertex sends JSON in binary frames (Blob/ArrayBuffer in the browser),
+  // AI Studio sends text frames. Decode first, then keep the existing
+  // parse path; the decode chain preserves message order.
   _onMessage(ev, onReady) {
-    const msg = JSON.parse(ev.data);
+    const data = ev.data;
+    this._decodeChain = (this._decodeChain || Promise.resolve())
+      .then(async () => {
+        const text = typeof data === 'string'
+          ? data
+          : data instanceof Blob
+            ? await data.text()
+            : new TextDecoder().decode(data);
+        this._handleMessage(JSON.parse(text), onReady);
+      })
+      .catch(e => this.h.onError?.(e));
+  }
+
+  _handleMessage(msg, onReady) {
     if (msg.setupComplete !== undefined) {
       this.connected = true;
       this.h.onOpen?.();
