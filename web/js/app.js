@@ -175,6 +175,7 @@ function log(msg) {
 // ---------- speaking backends ----------
 async function speakTts(text) {
   // Pre-generated line via Gemini TTS (backend). Falls back to speechSynthesis.
+  try { speechSynthesis.cancel(); } catch { } // kill any browser-TTS line still speaking — else two voices overlap
   try {
     const res = await fetch('/api/tts', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -263,6 +264,7 @@ async function playSong(key) {
     ttsBuf = new Float32Array(ttsAnalyser.fftSize);
   }
   if (ttsCtx.state === 'suspended') { try { await ttsCtx.resume(); } catch { } }
+  try { speechSynthesis.cancel(); } catch { } // don't let a browser-TTS line talk over the music
   const file = SONGS[key] ? key : 'furusato';
   songEl = new Audio(`/audio/songs/${file}.mp3`);
   songNode = ttsCtx.createMediaElementSource(songEl);
