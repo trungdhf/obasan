@@ -12,8 +12,10 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
+import { VRMAnimationLoaderPlugin, createVRMAnimationClip } from '@pixiv/three-vrm-animation';
 
 const MODEL_URL = 'models/hinata.vrm';
+const WAVE_ANIM_URL = 'models/greet_wave.vrma';
 // App mood names → VRM 1.0 expression presets (weights).
 const MOOD_EXPR = {
   normal: {},
@@ -86,6 +88,22 @@ class VrmAvatar {
     if (this.armBone) this.armBone.rotation.z = this._restR;
     if (this.leftArmBone) this.leftArmBone.rotation.z = this._restL;
     this._waveUntil = 0;
+    this._waveAction = null;
+    // greeting wave clip (.vrma) — falls back to bone animation if it fails to load
+    this.mixer = new THREE.AnimationMixer(vrm.scene);
+    this.waveClip = null;
+    try {
+      const animGltf = await new GLTFLoader()
+        .register(parser => new VRMAnimationLoaderPlugin(parser))
+        .loadAsync(WAVE_ANIM_URL);
+      const vrmAnim = animGltf.userData.vrmAnimations?.[0];
+      if (vrmAnim) {
+        this.waveClip = createVRMAnimationClip(vrmAnim, vrm);
+        console.log('[avatar] wave clip loaded:', this.waveClip.duration.toFixed(1) + 's');
+      }
+    } catch (e) {
+      console.warn('[avatar] wave clip unavailable, using bone fallback:', e.message || e);
+    }
     this.camera.position.set(hp.x, hp.y + 0.05, hp.z + 2.7);
     this.camera.lookAt(hp.x, hp.y - 0.02, hp.z);
     this.lookTarget = new THREE.Object3D();
@@ -142,7 +160,19 @@ class VrmAvatar {
     this.applyClasses();
   }
   setState(s) { this.state = s; this.applyClasses(); }
-  waveHello(ms = 2400) { this._waveUntil = performance.now() + ms; }
+  waveHello(ms = 2400) {
+    if (this.waveClip) {
+      this.mixer.stopAllAction();
+      const action = this.mixer.clipAction(this.waveClip);
+      action.setLoop(THREE.LoopOnce);
+      action.clampWhenFinished = true;
+      action.reset().fadeIn(0.15).play();
+      this._waveAction = action;
+      this._waveUntil = performance.now() + this.waveClip.duration * 1000;
+      return;
+    }
+    this._waveUntil = performance.now() + ms;
+  }
   say(text, { est } = {}) {
     this.bubble.textContent = text;
     this.bubble.classList.remove('hidden');
@@ -205,8 +235,17 @@ class VrmAvatar {
       this.headBone.rotation.y = Math.sin(t * 0.7) * amp;
       this.headBone.rotation.x = Math.sin(t * 0.53 + 1) * (standby ? 0.1 : 0.05) + (standby ? 0.12 : 0);
     }
-    const waving = now < this._waveUntil;
-    if (this.armBone) {
+    // animation clip drives the bones while playing; fade out at the end and
+    // hand control back to the procedural pose below
+    if (this._waveAction && now >= this._waveUntil) {
+      const act = this._waveAction;
+      act.fadeOut(0.4);
+      this._waveAction = null;
+      setTimeout(() => act.stop(), 450);
+    }
+    this.mixer?.update(dt);
+    const waving = !this._waveAction && now < this._waveUntil; // bone fallback only
+    if (this.armBone && !this._waveAction) {
       // hello wave: upper arm out to the side + slight forward swing;
       // calling wave or rest at the side otherwise
       const targetZ = waving ? -1.55 + Math.sin(t * 3) * 0.05
@@ -216,13 +255,13 @@ class VrmAvatar {
       const targetY = waving ? Math.sin(t * 8) * 0.2 : 0;
       this.armBone.rotation.y += (targetY - this.armBone.rotation.y) * Math.min(1, dt * 10);
     }
-    if (this.forearmBone) {
+    if (this.forearmBone && !this._waveAction) {
       // elbow bent ~90° so the forearm stands up beside the head;
       // the hand rocks side to side like the reference wave gif
       const targetZ = waving ? -2.1 + Math.sin(t * 8) * 0.3 : 0;
       this.forearmBone.rotation.z += (targetZ - this.forearmBone.rotation.z) * Math.min(1, dt * 10);
     }
-    if (this.leftArmBone) {
+    if (this.leftArmBone && !this._waveAction) {
       this.leftArmBone.rotation.z += (this._restL - this.leftArmBone.rotation.z) * Math.min(1, dt * 5);
     }
     // look-at wander toward the camera area
