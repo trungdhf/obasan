@@ -94,7 +94,30 @@ gcloud scheduler jobs create http hinata-due \
    the target ID(s) in `LINE_TARGET_IDS` (group ID starts with `C`, user `U`).
 5. Redeploy or update env vars.
 
-## 6. Tablet kiosk
+## 6. Auto-deploy on git push (continuous deployment)
+
+After the first manual deploy, Cloud Run can rebuild + redeploy on every push
+to `main` — no more `gcloud run deploy` by hand. One-time setup (console,
+because it needs your GitHub OAuth):
+
+1. Merge the working branch into `main` — the trigger watches `main`.
+2. Console → **Cloud Run** → `hinata` → **"Set up continuous deployment"**
+   (or Edit & deploy new revision → "Continuously deploy new revisions from
+   a source repository").
+3. Authenticate GitHub → pick repo `trungdhf/obasan` → branch `^main$`.
+4. Build type: **"Cloud Build configuration file"** → `cloudbuild.yaml`
+   (already in the repo — builds the root Dockerfile and swaps the image,
+   keeping env vars/secrets). Alternatively pick **Dockerfile** — same result.
+5. Save — the console creates the Cloud Build trigger and grants its service
+   account `run.admin` + `iam.serviceAccountUser` for you. Approve that prompt.
+
+Every `git push` to `main` now rebuilds and deploys in ~4–5 min. Check builds
+under Cloud Run → hinata → "Revisions" or Cloud Build → History.
+
+> Don't point the trigger at a dev branch — anything pushed to `main` goes
+> live immediately.
+
+## 7. Tablet kiosk
 
 - Chrome → Settings → open `https://<URL>` → "Add to Home screen", or Android
   kiosk mode (`chrome --kiosk <URL>` / managed kiosk policy).

@@ -71,7 +71,10 @@ export async function synthesizeSpeech(text) {
     contents: [{ role: 'user', parts: [{ text: `元気な幼い子どもの声で、おばあちゃんに話しかけるように言ってください: ${text}` }] }],
     config: {
       responseModalities: ['AUDIO'],
-      speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: TTS_VOICE } } }
+      speechConfig: {
+        languageCode: 'ja-JP',
+        voiceConfig: { prebuiltVoiceConfig: { voiceName: TTS_VOICE } }
+      }
     }
   });
   const part = res.candidates?.[0]?.content?.parts?.find(p => p.inlineData?.data);

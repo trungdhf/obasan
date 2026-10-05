@@ -115,7 +115,10 @@ export class LiveSession {
         model,
         generationConfig: {
           responseModalities: ['AUDIO'],
-          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: this.voice } } },
+          speechConfig: {
+            languageCode: 'ja-JP',
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: this.voice } },
+          },
         },
         systemInstruction: { parts: [{ text: this.systemPrompt }] },
         tools: this.tools,
@@ -168,6 +171,7 @@ export class LiveSession {
   // ---- mic ----
   async _startMic() {
     this.micCtx = new AudioContext();
+    if (this.micCtx.state === 'suspended') await this.micCtx.resume().catch(() => {});
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true }
     });
@@ -178,7 +182,13 @@ export class LiveSession {
     const node = new AudioWorkletNode(this.micCtx, 'pcm-cap');
     node.port.onmessage = (e) => this._onMicFrame(e.data);
     src.connect(node);
-    node.connect(this.micCtx.destination); // required for the processor to run
+    // Pull the worklet through a muted gain: the processor must be connected
+    // to run, but routing mic audio to the speakers echoes grandma's voice
+    // (and the bot's replies) back into the conversation.
+    const mute = this.micCtx.createGain();
+    mute.gain.value = 0;
+    node.connect(mute);
+    mute.connect(this.micCtx.destination);
     this._micNode = node;
   }
 

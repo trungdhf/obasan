@@ -1,0 +1,22 @@
+# Cloud Build — auto-deploy to Cloud Run on every push to main.
+# Wire it up once in the console (see docs/deploy.md §7): Cloud Run → hinata →
+# "Set up continuous deployment" → connect trungdhf/obasan → branch main →
+# build with this file. Env vars and secrets already on the service are kept;
+# this only swaps the image.
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/hinata:latest', '.']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/hinata:latest']
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'hinata'
+      - '--image=gcr.io/$PROJECT_ID/hinata:latest'
+      - '--region=asia-northeast1'
+      - '--platform=managed'
+      - '--quiet'
+images: ['gcr.io/$PROJECT_ID/hinata:latest']
+timeout: '1800s'
