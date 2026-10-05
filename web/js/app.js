@@ -49,6 +49,7 @@ const SYSTEM_PROMPT = `あなたは「ひなた」。6歳くらいの、元気�
 
 役割:
 - 気分に合わせて set_emotion を呼ぶ（normal/happy/sad/worried/pout/scared/surprised）。
+- おばあちゃんが正解した・喜んだ → play_animation:clapping で拍手して大喜びする（正解したら必ず）。驚いたら surprised、考え込む間は thinking、元気なとき jump。
 - おばあちゃんの具合が悪そう、返事がない、危険がありそう → notify_family で家族に連絡。重大な判断は必ず人間（家族）に任せる。
 - 薬・食事・水分の約束は schedule_reminder に登録する。
 - 天気や気温を聞かれたら get_weather、暑さ・警報・災害情報が心配なら get_weather_alert で確認してから答える。警報が出ていたらはっきり伝える。
@@ -100,6 +101,15 @@ const TOOLS = [{
       name: 'get_weather_alert',
       description: 'Check current weather warnings/disaster alerts for grandma\'s area',
       parameters: { type: 'OBJECT', properties: {} },
+    },
+    {
+      name: 'play_animation',
+      description: 'Play a body animation on the avatar. clapping = celebrate (e.g. grandma answered correctly — always use it then), surprised, thinking, jump, goodbye',
+      parameters: {
+        type: 'OBJECT',
+        properties: { anim: { type: 'STRING', enum: ['clapping', 'surprised', 'thinking', 'jump', 'goodbye'] } },
+        required: ['anim'],
+      },
     },
     {
       name: 'save_memory',
@@ -258,6 +268,9 @@ async function handleToolCall(call) {
     switch (name) {
       case 'set_emotion':
         avatar.setMood(args.emotion || 'normal');
+        break;
+      case 'play_animation':
+        avatar.playAnim?.(args.anim);
         break;
       case 'notify_family': {
         const r = await fetch('/api/tools/notify_family', {
@@ -549,6 +562,7 @@ async function boot() {
   }
   avatar.setState('active');
   setLiveBadge(false);
+  window.hinata = { avatar };   // console debug handle
 
   presence = new Presence({
     video: $('cam'),

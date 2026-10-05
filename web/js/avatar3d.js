@@ -15,7 +15,15 @@ import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 import { VRMAnimationLoaderPlugin, createVRMAnimationClip } from '@pixiv/three-vrm-animation';
 
 const MODEL_URL = 'models/hinata.vrm';
-const WAVE_ANIM_URL = 'models/greet_wave.vrma';
+// .vrma clips on the shared humanoid skeleton — work on any VRM model.
+const ANIM_URLS = {
+  wave: 'models/greet_wave.vrma',
+  clapping: 'models/clapping.vrma',
+  thinking: 'models/thinking.vrma',
+  surprised: 'models/surprised.vrma',
+  jump: 'models/jump.vrma',
+  goodbye: 'models/goodbye.vrma',
+};
 // App mood names → VRM 1.0 expression presets (weights).
 const MOOD_EXPR = {
   normal: {},
@@ -87,23 +95,24 @@ class VrmAvatar {
     this._restR = 1.45; this._restL = -1.45;
     if (this.armBone) this.armBone.rotation.z = this._restR;
     if (this.leftArmBone) this.leftArmBone.rotation.z = this._restL;
-    this._waveUntil = 0;
-    this._waveAction = null;
-    // greeting wave clip (.vrma) — falls back to bone animation if it fails to load
+    this._waveUntil = 0;   // procedural wave fallback end time
+    this._animAction = null;
+    this._animUntil = 0;
+    // .vrma clips — procedural bone animation stays as fallback per clip
     this.mixer = new THREE.AnimationMixer(vrm.scene);
-    this.waveClip = null;
-    try {
-      const animGltf = await new GLTFLoader()
-        .register(parser => new VRMAnimationLoaderPlugin(parser))
-        .loadAsync(WAVE_ANIM_URL);
-      const vrmAnim = animGltf.userData.vrmAnimations?.[0];
-      if (vrmAnim) {
-        this.waveClip = createVRMAnimationClip(vrmAnim, vrm);
-        console.log('[avatar] wave clip loaded:', this.waveClip.duration.toFixed(1) + 's');
+    this.clips = {};
+    await Promise.all(Object.entries(ANIM_URLS).map(async ([name, url]) => {
+      try {
+        const animGltf = await new GLTFLoader()
+          .register(parser => new VRMAnimationLoaderPlugin(parser))
+          .loadAsync(url);
+        const vrmAnim = animGltf.userData.vrmAnimations?.[0];
+        if (vrmAnim) this.clips[name] = createVRMAnimationClip(vrmAnim, vrm);
+      } catch (e) {
+        console.warn(`[avatar] clip ${name} unavailable:`, e.message || e);
       }
-    } catch (e) {
-      console.warn('[avatar] wave clip unavailable, using bone fallback:', e.message || e);
-    }
+    }));
+    console.log('[avatar] clips loaded:', Object.keys(this.clips).join(',') || 'none');
     this.camera.position.set(hp.x, hp.y + 0.05, hp.z + 2.7);
     this.camera.lookAt(hp.x, hp.y - 0.02, hp.z);
     this.lookTarget = new THREE.Object3D();
@@ -161,17 +170,20 @@ class VrmAvatar {
   }
   setState(s) { this.state = s; this.applyClasses(); }
   waveHello(ms = 2400) {
-    if (this.waveClip) {
-      this.mixer.stopAllAction();
-      const action = this.mixer.clipAction(this.waveClip);
-      action.setLoop(THREE.LoopOnce);
-      action.clampWhenFinished = true;
-      action.reset().fadeIn(0.15).play();
-      this._waveAction = action;
-      this._waveUntil = performance.now() + this.waveClip.duration * 1000;
-      return;
-    }
+    if (this.clips.wave) { this.playAnim('wave'); return; }
     this._waveUntil = performance.now() + ms;
+  }
+  celebrate() { this.playAnim('clapping'); }
+  playAnim(name) {
+    const clip = this.clips[name];
+    if (!clip) { if (name === 'wave') this._waveUntil = performance.now() + 2400; return; }
+    this.mixer.stopAllAction();
+    const action = this.mixer.clipAction(clip);
+    action.setLoop(THREE.LoopOnce);
+    action.clampWhenFinished = true;
+    action.reset().fadeIn(0.15).play();
+    this._animAction = action;
+    this._animUntil = performance.now() + clip.duration * 1000;
   }
   say(text, { est } = {}) {
     this.bubble.textContent = text;
@@ -237,15 +249,16 @@ class VrmAvatar {
     }
     // animation clip drives the bones while playing; fade out at the end and
     // hand control back to the procedural pose below
-    if (this._waveAction && now >= this._waveUntil) {
-      const act = this._waveAction;
+    if (this._animAction && now >= this._animUntil) {
+      const act = this._animAction;
       act.fadeOut(0.4);
-      this._waveAction = null;
+      this._animAction = null;
       setTimeout(() => act.stop(), 450);
     }
     this.mixer?.update(dt);
-    const waving = !this._waveAction && now < this._waveUntil; // bone fallback only
-    if (this.armBone && !this._waveAction) {
+    const animBusy = Boolean(this._animAction);
+    const waving = !animBusy && now < this._waveUntil; // bone fallback only
+    if (this.armBone && !animBusy) {
       // hello wave: upper arm out to the side + slight forward swing;
       // calling wave or rest at the side otherwise
       const targetZ = waving ? -1.55 + Math.sin(t * 3) * 0.05
@@ -255,13 +268,13 @@ class VrmAvatar {
       const targetY = waving ? Math.sin(t * 8) * 0.2 : 0;
       this.armBone.rotation.y += (targetY - this.armBone.rotation.y) * Math.min(1, dt * 10);
     }
-    if (this.forearmBone && !this._waveAction) {
+    if (this.forearmBone && !animBusy) {
       // elbow bent ~90° so the forearm stands up beside the head;
       // the hand rocks side to side like the reference wave gif
       const targetZ = waving ? -2.1 + Math.sin(t * 8) * 0.3 : 0;
       this.forearmBone.rotation.z += (targetZ - this.forearmBone.rotation.z) * Math.min(1, dt * 10);
     }
-    if (this.leftArmBone && !this._waveAction) {
+    if (this.leftArmBone && !animBusy) {
       this.leftArmBone.rotation.z += (this._restL - this.leftArmBone.rotation.z) * Math.min(1, dt * 5);
     }
     // look-at wander toward the camera area
@@ -312,6 +325,8 @@ export class HybridAvatar {
   setState(s) { this.state = s; this.svgAvatar.setState(s); this.vrm?.setState(s); }
   say(t, o) { this._active.say(t, o); }
   waveHello(ms) { this._active.waveHello?.(ms); }
+  playAnim(n) { this._active.playAnim?.(n); }
+  celebrate() { this._active.celebrate?.() || this._active.playAnim?.('clapping'); }
   hideBubble() { this._active.hideBubble(); }
   ensureAudio() { return this._active.ensureAudio(); }
   chime(l) { this._active.chime(l); }
