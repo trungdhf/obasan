@@ -52,6 +52,7 @@ const SYSTEM_PROMPT = `あなたは「ひなた」。6歳くらいの、元気�
 - 体操もすすめる: 「ラジオたいそう第一」を口頭でゆっくり案内する（深呼吸・両手を上げる・ひねる等を一言ずつ）。座ってできる運動（イスに座ったまま手足を上げる・のばす）も教える。
 - 運動の前には必ず「むりしないでね」「イスにつかまってね」「つまずかないようにね」と注意を言う。転倒は一番の敵。
 - 「たいそうして」「あそぼう」「なんかして」と言われたら、今日は脳トレ・体操・お話のどれかを提案する。
+- 体操を案内するときは play_animation:exercise を呼んで、ひなたも手を上げ下げして一緒にやる。「いっしょにやろ〜」と誘う。
 
 役割:
 - 気分に合わせて set_emotion を呼ぶ（normal/happy/sad/worried/pout/scared/surprised）。
@@ -131,10 +132,10 @@ const TOOLS = [{
     },
     {
       name: 'play_animation',
-      description: 'Play a body animation on the avatar. clapping = celebrate (e.g. grandma answered correctly — always use it then), surprised, thinking, jump, goodbye',
+      description: 'Play a body animation on the avatar. clapping = celebrate (e.g. grandma answered correctly — always use it then), surprised, thinking, jump, goodbye, exercise = looping arm-raise demo so grandma can exercise along (use whenever you guide 体操/たいそう)',
       parameters: {
         type: 'OBJECT',
-        properties: { anim: { type: 'STRING', enum: ['clapping', 'surprised', 'thinking', 'jump', 'goodbye'] } },
+        properties: { anim: { type: 'STRING', enum: ['clapping', 'surprised', 'thinking', 'jump', 'goodbye', 'exercise'] } },
         required: ['anim'],
       },
     },
@@ -535,6 +536,7 @@ async function chipSay(text) {
   if (manualOff) { manualOff = false; syncModeBtnsRef?.(); } // explicit tap wakes
   if (avatar.state === 'standby' || standbyTimer || avatar.state === 'calling') goActive('ボタン');
   if (!live?.connected && !CONFIG.demo) await openLive();
+  if (text === 'いっしょにたいそうして') avatar.playAnim?.('exercise'); // Hinata demos the moves too
   if (text === 'うたをうたって') { // real recording, not Live humming
     if (songEl) { // playing → tap toggles it off
       stopSong();

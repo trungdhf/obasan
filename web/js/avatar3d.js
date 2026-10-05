@@ -176,7 +176,13 @@ class VrmAvatar {
     this._waveUntil = performance.now() + ms;
   }
   celebrate() { this.playAnim('clapping'); }
+  // looping arm-raise / stretch demo so grandma can follow along —
+  // procedural because we don't have a taisou .vrma clip
+  exercise(on = true, ms = 40000) {
+    this._exerciseUntil = on ? performance.now() + ms : 0;
+  }
   playAnim(name) {
+    if (name === 'exercise') { this.mixer.stopAllAction(); this.exercise(true); return; }
     const clip = this.clips[name];
     if (!clip) { if (name === 'wave') this._waveUntil = performance.now() + 2400; return; }
     this.mixer.stopAllAction();
@@ -260,13 +266,18 @@ class VrmAvatar {
     this.mixer?.update(dt);
     const animBusy = Boolean(this._animAction);
     const waving = !animBusy && now < this._waveUntil; // bone fallback only
+    // exercise demo: both arms rise together overhead and lower on a slow
+    // 3-second cycle (sinusoid 0→1→0), plus a gentle nod — grandma mirrors it
+    const exercising = !animBusy && !standby && now < this._exerciseUntil;
+    const lift = exercising ? 0.5 + 0.5 * Math.sin(t * (Math.PI * 2 / 3)) : 0;
     if (this.armBone && !animBusy) {
       // hello wave: upper arm out to the side + slight forward swing;
       // calling wave or rest at the side otherwise
-      const targetZ = waving ? -1.55 + Math.sin(t * 3) * 0.05
+      const targetZ = exercising ? this._restR - lift * 1.5
+        : waving ? -1.55 + Math.sin(t * 3) * 0.05
         : this.state === 'calling' ? -1.1 + Math.sin(t * 5) * 0.35
         : this._restR;
-      this.armBone.rotation.z += (targetZ - this.armBone.rotation.z) * Math.min(1, dt * (waving ? 10 : 5));
+      this.armBone.rotation.z += (targetZ - this.armBone.rotation.z) * Math.min(1, dt * (exercising ? 8 : waving ? 10 : 5));
       const targetY = waving ? Math.sin(t * 8) * 0.2 : 0;
       this.armBone.rotation.y += (targetY - this.armBone.rotation.y) * Math.min(1, dt * 10);
     }
@@ -277,7 +288,11 @@ class VrmAvatar {
       this.forearmBone.rotation.z += (targetZ - this.forearmBone.rotation.z) * Math.min(1, dt * 10);
     }
     if (this.leftArmBone && !animBusy) {
-      this.leftArmBone.rotation.z += (this._restL - this.leftArmBone.rotation.z) * Math.min(1, dt * 5);
+      const targetZ = exercising ? this._restL + lift * 1.5 : this._restL;
+      this.leftArmBone.rotation.z += (targetZ - this.leftArmBone.rotation.z) * Math.min(1, dt * (exercising ? 8 : 5));
+    }
+    if (exercising && this.headBone) {
+      this.headBone.rotation.x += lift * 0.06; // nod along with the reps
     }
     // look-at wander toward the camera area
     this._look.x = Math.sin(t * 0.4) * 0.12;
