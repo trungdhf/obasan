@@ -229,7 +229,11 @@ jma.startWeatherLoop(async fresh => {
 });
 
 // Serve the tablet app last so /api and /webhook always win.
-app.use(express.static(WEB_DIR, { maxAge: '1h' }));
+// No persistent cache for app files — every reload revalidates via ETag so
+// a normal refresh always picks up a new deploy (the 1h cache kept serving
+// stale JS on the tablet). The VRM model keeps a long cache.
+app.use('/models', express.static(path.join(WEB_DIR, 'models'), { maxAge: '7d' }));
+app.use(express.static(WEB_DIR, { maxAge: 0 }));
 app.get('/{*splat}', (_req, res) => res.sendFile(path.join(WEB_DIR, 'index.html')));
 
 app.listen(PORT, () => {
