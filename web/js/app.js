@@ -343,8 +343,9 @@ function goStandby(reason) {
   const bye = L().bye;
   if (live?.connected) {
     live.sendText(`（システム）おばあちゃんがいなくなりました。「${bye}」とだけ言って。`);
+    setLiveBadge(false); // status shows おやすみ right away; socket stays open only for the farewell
     const sess = live;
-    setTimeout(() => { if (live === sess) closeLive(); }, 2500); // don't kill a session reopened by goActive
+    setTimeout(() => { if (live === sess) closeLive(); }, 4000); // don't kill a session reopened by goActive
   } else {
     speakFallback(bye);
   }
