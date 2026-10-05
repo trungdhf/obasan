@@ -79,8 +79,8 @@ class VrmAvatar {
     const hp = head ? head.getWorldPosition(new THREE.Vector3()) : new THREE.Vector3(0, 1.3, 0);
     this.headBone = head;
     this.armBone = vrm.humanoid?.getNormalizedBoneNode('rightUpperArm');
-    this.camera.position.set(hp.x, hp.y + 0.02, hp.z + 0.95);
-    this.camera.lookAt(hp.x, hp.y - 0.14, hp.z);
+    this.camera.position.set(hp.x, hp.y - 0.02, hp.z + 1.0);
+    this.camera.lookAt(hp.x, hp.y - 0.05, hp.z);
     this.lookTarget = new THREE.Object3D();
     this.lookTarget.position.copy(hp).add(new THREE.Vector3(0, 0, 0.5));
     this.scene.add(this.lookTarget);
