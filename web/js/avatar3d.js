@@ -27,7 +27,9 @@ const ANIM_URLS = {
 // App mood names → VRM 1.0 expression presets (weights).
 const MOOD_EXPR = {
   normal: {},
-  happy: { happy: 1 },
+  // 0.5 keeps the eyes open — the VRoid 'happy' preset squeezes them shut
+  // past ~0.6; relaxed adds a soft mouth smile.
+  happy: { happy: 0.5, relaxed: 0.3 },
   sad: { sad: 1 },
   worried: { sad: 0.6 },
   pout: { angry: 1 },
