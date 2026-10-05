@@ -240,6 +240,10 @@ async function openLive() {
           let shown = transcriptBuf;
           while (/\{/.test(shown) && shown !== (shown = shown.replace(/\{[^{}]*\}/g, ''))) { }
           shown = shown.trim();
+          // Keep only the last 2 sentences — the bubble is a live caption,
+          // not a chat history; an untrimmed monologue floods the screen.
+          const parts = shown.split(/(?<=[。！？!?？\n])/);
+          if (parts.length > 2) shown = parts.slice(-2).join('').trim();
           if (shown) { avatar.bubble.textContent = shown; avatar.bubble.classList.remove('hidden'); }
           if (done) transcriptBuf = '';
         },
@@ -362,19 +366,14 @@ function goActive(reason) {
 function goStandby(reason) {
   clearTimeout(callTimer); callCount = 0; currentCall = null;
   const bye = L().bye;
-  if (live?.connected) {
-    live.sendText(`（システム）おばあちゃんがいなくなりました。「${bye}」とだけ言って。`);
-    setLiveBadge(false); // status shows おやすみ right away; socket stays open only for the farewell
-    const sess = live;
-    setTimeout(() => { if (live === sess) closeLive(); }, 4000); // don't kill a session reopened by goActive
-  } else {
-    speakFallback(bye);
-  }
+  // Fixed farewell via TTS, not the Live model — it kept improvising a long
+  // repetitive monologue. Closing the socket right away also stops billing.
+  if (live?.connected) { closeLive(); setLiveBadge(false); }
+  speakTts(bye).then(() => avatar.hideBubble()); // bubble stays until the line finishes
   clearTimeout(standbyTimer);
   standbyTimer = setTimeout(() => {
     standbyTimer = null;
     avatar.setState('standby');
-    avatar.hideBubble();
   }, 1800);
   log(`待機へ（${reason}）。Liveセッションを閉じて課金を止める。`);
 }
