@@ -216,7 +216,7 @@ async function openLive() {
       .replace('{{MEMORY}}', memory?.summary || '（はじめての会話）');
     live = new LiveSession({
       token, model, vertex, location, project,
-      voice: userVoice || serverCfg.liveVoice || 'Aoede',
+      voice: userVoice || serverCfg.liveVoice || 'Zephyr',
       systemPrompt: prompt, tools: TOOLS,
       handlers: {
         onOpen: () => { log('Gemini Live 接続'); setLiveBadge(true); },

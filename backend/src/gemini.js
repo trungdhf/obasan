@@ -19,7 +19,7 @@ const LOCATION = process.env.VERTEX_LOCATION || process.env.GOOGLE_CLOUD_LOCATIO
 // TTS stays regional (LOCATION); override with VERTEX_LIVE_LOCATION if needed.
 const LIVE_LOCATION = process.env.VERTEX_LIVE_LOCATION || 'global';
 const TTS_MODEL = process.env.TTS_MODEL || 'gemini-2.5-flash-preview-tts';
-const TTS_VOICE = process.env.TTS_VOICE || 'Aoede';
+const TTS_VOICE = process.env.TTS_VOICE || 'Zephyr';
 
 const VERTEX = Boolean(PROJECT);
 export function isVertex() { return VERTEX; }

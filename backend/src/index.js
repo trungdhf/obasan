@@ -50,7 +50,7 @@ app.get('/api/config', (_req, res) => {
     idleToStandbySec: IDLE_TO_STANDBY_SEC,
     callAttempts: CALL_ATTEMPTS,
     liveModel: liveModel(),
-    liveVoice: process.env.LIVE_VOICE || 'Aoede',
+    liveVoice: process.env.LIVE_VOICE || 'Zephyr',
   });
 });
 
