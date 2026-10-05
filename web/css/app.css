@@ -38,7 +38,7 @@ body{
 .bubble{
   position:absolute;top:0;left:0;right:0;z-index:5;
   background:var(--cream);color:#33291F;
-  border-radius:0 0 22px 22px;padding:14px 20px;font-size:clamp(1.15rem,2.6vw,1.45rem);line-height:1.55;
+  border-radius:0 0 22px 22px;padding:14px 20px;font-size:clamp(1.15rem,2.6vw,1.45rem);line-height:1.55;white-space:pre-line;
   font-weight:700;text-align:center;box-shadow:0 2px 0 #E2CFAE;
   transition:opacity .3s ease,transform .3s ease;
 }

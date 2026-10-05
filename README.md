@@ -94,6 +94,16 @@ Fallbacks: `?avatar=svg` forces the SVG avatar; any VRM load failure (no WebGL,
 missing file, offline CDN) silently stays on SVG. The キャラクター buttons switch
 between 3D and SVG characters live.
 
+## Song files
+
+`web/audio/songs/*.mp3` are free traditional-song recordings (ふるさと,
+ももたろう, おぼろづきよ, あめふり, さくら, ゆき — all public-domain
+文部省唱歌/童謡) from [音楽研究所 / mu-tech.org](https://www.mu-tech.org/Traditional/).
+Their terms allow free use as BGM in apps/videos for non-commercial purposes;
+they may not be redistributed as music material by themselves. The うた chip
+and the Live `play_song` tool play them while the avatar lip-syncs and shows
+karaoke lyrics in the bubble.
+
 ## Submission checklist
 
 - [x] Avatar demo: expressions, lip-sync, standby, proactive call

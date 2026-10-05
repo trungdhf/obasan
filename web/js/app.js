@@ -42,9 +42,8 @@ const SYSTEM_PROMPT = `あなたは「ひなた」。6歳くらいの、元気�
 - 1回に詰め込みすぎない。おばあちゃんが喜んだら続きをする。
 
 うた:
-- ひなたは歌うのが大好き。「うたって」と言われたら、おばあちゃんが知ってそうな日本の歌を歌う: ふるさと、ちょうちょう、ももたろう、たきび、うさぎ、夏の思い出、故郷の空 など。
-- ゆっくり・はっきり・楽しそうに、1番だけ歌う。途中で「♪」をつけてノリノリで。
-- 歌い終わったら「つぎはおばあちゃんもいっしょにうたお？」と誘う。おばあちゃんが歌い出したら一緒に歌う。
+- 歌には本物の録音を使う。「うたって」「歌ききたい」と言われたら play_song を呼んで1曲かける（ふるさと、ももたろう、おぼろづきよ、あめふり、さくら、ゆき）。再生中に自分で歌おうとしない——声がかぶる。かける前に「ふるさとかけるね〜」と一言だけ言う。
+- 曲が終わったら「つぎはおばあちゃんもいっしょにうたお？」と誘う。おばあちゃんが歌い出したら一緒に口ずさむ。
 - 会話がしずまったとき、たまに「うたうたおっか〜」と自分から提案してもいい。
 
 脳トレと体操:
@@ -114,6 +113,15 @@ const TOOLS = [{
       name: 'get_news',
       description: 'Get today\'s top domestic news headlines (NHK). Use when grandma asks for news, or proactively offer the headlines.',
       parameters: { type: 'OBJECT', properties: {} },
+    },
+    {
+      name: 'play_song',
+      description: 'Play a real Japanese children\'s song recording (ふるさと, ももたろう, おぼろづきよ, あめふり, さくら, ゆき). Use whenever grandma asks for a song or you want to sing together.',
+      parameters: {
+        type: 'OBJECT',
+        properties: { song: { type: 'STRING', enum: ['furusato', 'momotarou', 'oborozukiyo', 'amefuri', 'sakura', 'yuki'] } },
+        required: ['song'],
+      },
     },
     {
       name: 'play_animation',
@@ -224,6 +232,51 @@ function speakFallback(text) {
   }
 }
 
+// ---------- song player (real recordings, sing-along for grandma) ----------
+// Gemini Live can only hum — actual songs are free-license recordings
+// (mu-tech.org traditional vocal MP3s, public-domain 文部省唱歌/童謡) shipped
+// in web/audio/songs/. Lyrics appear in the bubble like karaoke; the song
+// audio runs through ttsAnalyser so Hinata's mouth moves with the music.
+const SONGS = {
+  furusato:    { title: 'ふるさと',   lyrics: '♪ うさぎおいし かのやま こぶなつりし かのかわ ゆめはいまも めぐりて わすれがたき ふるさと' },
+  momotarou:   { title: 'ももたろう', lyrics: '♪ ももたろさん ももたろさん おこしにつけた きびだんご ひとつわたしに くださいな' },
+  oborozukiyo: { title: 'おぼろづきよ', lyrics: '♪ なのはなばたけに いりひうすれ みわたすやまのは かすみふかし はるかぜそよふく' },
+  amefuri:     { title: 'あめふり',   lyrics: '♪ あめあめ ふれふれ かあさんが じゃのめで おむかえ うれしいな ぴっちぴっち ちゃっぷちゃっぷ' },
+  sakura:      { title: 'さくら',     lyrics: '♪ さくら さくら やよいのそらは みわたすかぎり かすみかくもか いざや いざや みにゆかん' },
+  yuki:        { title: 'ゆき',       lyrics: '♪ ゆきやこんこ あられやこんこ ふってはふっては ずんずんつもる' },
+};
+let songEl = null, songNode = null;
+function stopSong() {
+  if (songEl) { try { songEl.pause(); songEl.src = ''; } catch { } songEl = null; }
+  if (songNode) { try { songNode.disconnect(); } catch { } songNode = null; }
+  ttsPlaying = Math.max(0, ttsPlaying - (stopSong._playing ? 1 : 0));
+  stopSong._playing = false;
+}
+async function playSong(key) {
+  const s = SONGS[key] || SONGS.furusato;
+  stopSong();
+  if (!ttsCtx) { // reuse the same graph the TTS path builds
+    ttsCtx = new AudioContext();
+    ttsAnalyser = ttsCtx.createAnalyser();
+    ttsAnalyser.fftSize = 512;
+    ttsAnalyser.connect(ttsCtx.destination);
+    ttsBuf = new Float32Array(ttsAnalyser.fftSize);
+  }
+  if (ttsCtx.state === 'suspended') { try { await ttsCtx.resume(); } catch { } }
+  const file = SONGS[key] ? key : 'furusato';
+  songEl = new Audio(`/audio/songs/${file}.mp3`);
+  songNode = ttsCtx.createMediaElementSource(songEl);
+  songNode.connect(ttsAnalyser);
+  ttsPlaying++; stopSong._playing = true; // drive the mouth with the music level
+  avatar.setMood('happy');
+  avatar.bubble.textContent = `♪ ${s.title} ♪\n${s.lyrics}\nいっしょにうたお〜`;
+  avatar.bubble.classList.remove('hidden');
+  log(`うた: ${s.title}`);
+  songEl.onended = () => { stopSong(); avatar.setMood('normal'); avatar.hideBubble(); };
+  songEl.onerror = () => { stopSong(); avatar.hideBubble(); };
+  try { await songEl.play(); } catch { }
+}
+
 // ---------- Gemini Live ----------
 async function openLive() {
   if (CONFIG.demo || live?.connected) return;
@@ -294,6 +347,10 @@ async function handleToolCall(call) {
         break;
       case 'play_animation':
         avatar.playAnim?.(args.anim);
+        break;
+      case 'play_song':
+        playSong(args.song);
+        result = { ok: true, playing: SONGS[args.song]?.title || args.song };
         break;
       case 'notify_family': {
         const r = await fetch('/api/tools/notify_family', {
@@ -383,6 +440,7 @@ function goStandby(reason) {
   const bye = L().bye;
   // Fixed farewell via TTS, not the Live model — it kept improvising a long
   // repetitive monologue. Closing the socket right away also stops billing.
+  stopSong();
   if (live?.connected) { closeLive(); setLiveBadge(false); }
   speakTts(bye).then(() => avatar.hideBubble()); // bubble stays until the line finishes
   clearTimeout(standbyTimer);
@@ -458,6 +516,11 @@ async function chipSay(text) {
   if (manualOff) { manualOff = false; syncModeBtnsRef?.(); } // explicit tap wakes
   if (avatar.state === 'standby' || standbyTimer || avatar.state === 'calling') goActive('ボタン');
   if (!live?.connected && !CONFIG.demo) await openLive();
+  if (text === 'うたをうたって') { // real recording, not Live humming
+    const keys = Object.keys(SONGS);
+    playSong(keys[Math.floor(Math.random() * keys.length)]);
+    return;
+  }
   if (live?.connected) { live.sendText(text); return; }
   if (text === 'きょうのてんきは？') {
     const w = await fetch('/api/tools/weather').then(r => r.json()).catch(() => ({}));
