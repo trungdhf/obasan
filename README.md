@@ -85,13 +85,13 @@ Deploy: see [docs/deploy.md](docs/deploy.md).
 ## 3D avatar (VRM)
 
 The tablet app renders a **3D VRM avatar** by default (three.js + `@pixiv/three-vrm`
-via CDN import map — no bundler). `web/models/neko.vrm` is the current model —
-**WeirdCat** from Polygonal Mind's *100Avatars R3* collection
-([CC0 license](https://github.com/ToxSam/open-source-avatars), no attribution
-required). `web/models/hinata.vrm` is kept as a human-girl placeholder; to use a
+via CDN import map — no bundler). `web/models/hinata.vrm` is the current model;
+`web/models/neko.vrm` (**WeirdCat**, Polygonal Mind *100Avatars R3*,
+[CC0](https://github.com/ToxSam/open-source-avatars)) is kept as an alternative
+cat avatar — point `MODEL_URL` in `web/js/avatar3d.js` at it to switch. To use a
 custom model, export a VRM from **VRoid Studio** (map the preset expressions
 `happy`/`sad`/`angry`/`surprised`/`relaxed` + visemes `aa`/`ih`/`ou`/`blink`)
-and point `MODEL_URL` in `web/js/avatar3d.js` at it. Features: audio-driven lip-sync, blinking, look-at wander,
+and point `MODEL_URL` at it. Features: audio-driven lip-sync, blinking, look-at wander,
 idle sway, arm wave while calling, eyes-closed standby, mood expressions.
 Fallbacks: `?avatar=svg` forces the SVG avatar; any VRM load failure (no WebGL,
 missing file, offline CDN) silently stays on SVG. The キャラクター buttons switch

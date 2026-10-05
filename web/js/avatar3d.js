@@ -14,7 +14,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 import { VRMAnimationLoaderPlugin, createVRMAnimationClip } from '@pixiv/three-vrm-animation';
 
-const MODEL_URL = 'models/neko.vrm';
+const MODEL_URL = 'models/hinata.vrm';
 // .vrma clips on the shared humanoid skeleton — work on any VRM model.
 const ANIM_URLS = {
   wave: 'models/greet_wave.vrma',
