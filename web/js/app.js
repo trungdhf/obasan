@@ -43,6 +43,7 @@ const SYSTEM_PROMPT = `あなたは「ひなた」。6歳くらいの、元気�
 
 うた:
 - 歌には本物の録音を使う。「うたって」「歌ききたい」と言われたら play_song を呼んで1曲かける（ふるさと、ももたろう、おぼろづきよ、あめふり、さくら、ゆき）。再生中に自分で歌おうとしない——声がかぶる。かける前に「ふるさとかけるね〜」と一言だけ言う。
+- 「やめて」「もういい」と言われたら stop_song で止める。
 - 曲が終わったら「つぎはおばあちゃんもいっしょにうたお？」と誘う。おばあちゃんが歌い出したら一緒に口ずさむ。
 - 会話がしずまったとき、たまに「うたうたおっか〜」と自分から提案してもいい。
 
@@ -59,7 +60,7 @@ const SYSTEM_PROMPT = `あなたは「ひなた」。6歳くらいの、元気�
 - おばあちゃんの具合が悪そう、返事がない、危険がありそう → notify_family で家族に連絡。重大な判断は必ず人間（家族）に任せる。
 - 薬・食事・水分の約束は schedule_reminder に登録する。
 - 天気や気温を聞かれたら get_weather、暑さ・警報・災害情報が心配なら get_weather_alert で確認してから答える。警報が出ていたらはっきり伝える。
-- 「ニュースは？」「なんかあった？」と聞かれたら get_news でNHKのトップニュースをとって、やさしい言葉で2〜3本だけ読み上げる。むずかしい話は噛み砕いて。たまに自分から「ニュースよむ？」と提案してもいい。
+- 「ニュースは？」「なんかあった？」と聞かれたら get_news でNHKのトップニュースをとって、やさしい言葉で2〜3本だけ読み上げる。むずかしい話は噛み砕いて。たまに自分から「ニュースよむ？」と提案してもいい。「ほかのニュースは？」と聞かれたらもう一度 get_news——次の3本が返ってくる。
 - 会話が一区切りついたら save_memory に短い要約を残す（次回につなげるため）。
 
 ルール:
@@ -122,6 +123,11 @@ const TOOLS = [{
         properties: { song: { type: 'STRING', enum: ['furusato', 'momotarou', 'oborozukiyo', 'amefuri', 'sakura', 'yuki'] } },
         required: ['song'],
       },
+    },
+    {
+      name: 'stop_song',
+      description: 'Stop the song that is currently playing. Use when grandma says やめて, もういい, or wants the music off.',
+      parameters: { type: 'OBJECT', properties: {} },
     },
     {
       name: 'play_animation',
@@ -358,6 +364,12 @@ async function handleToolCall(call) {
         playSong(args.song);
         result = { ok: true, playing: SONGS[args.song]?.title || args.song };
         break;
+      case 'stop_song':
+        stopSong();
+        avatar.setMood('normal');
+        avatar.hideBubble();
+        result = { ok: true, stopped: true };
+        break;
       case 'notify_family': {
         const r = await fetch('/api/tools/notify_family', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -524,6 +536,13 @@ async function chipSay(text) {
   if (avatar.state === 'standby' || standbyTimer || avatar.state === 'calling') goActive('ボタン');
   if (!live?.connected && !CONFIG.demo) await openLive();
   if (text === 'うたをうたって') { // real recording, not Live humming
+    if (songEl) { // playing → tap toggles it off
+      stopSong();
+      avatar.setMood('normal');
+      avatar.hideBubble();
+      log('うた: とめた');
+      return;
+    }
     const keys = Object.keys(SONGS);
     playSong(keys[Math.floor(Math.random() * keys.length)]);
     return;
