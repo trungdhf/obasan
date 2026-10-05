@@ -319,6 +319,10 @@ async function openLive() {
       },
     });
     await live.connect();
+    // Grandma may have gone standby while the handshake was in flight.
+    // Tear the session down or it stays alive — billing continues and the
+    // model can start talking over the farewell TTS (the "two voices" bug).
+    if (avatar.state !== 'active') { live.disconnect(); live = null; }
   } catch (e) {
     console.warn('[live]', e);
     log('Live接続失敗 → デモモードにフォールバック');
@@ -429,6 +433,7 @@ function goActive(reason) {
     speakFallback(L().welcome);
   } else {
     openLive().then(() => {
+      if (avatar.state !== 'active') return; // she left while Live was connecting
       if (live?.connected) live.sendText('（システム）おばあちゃんが戻ってきました。短くあいさつして。');
       else speakFallback(L().welcome);
     });
