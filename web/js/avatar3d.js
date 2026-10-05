@@ -82,12 +82,12 @@ class VrmAvatar {
     this.leftArmBone = vrm.humanoid?.getNormalizedBoneNode('leftUpperArm');
     this.forearmBone = vrm.humanoid?.getNormalizedBoneNode('rightLowerArm');
     // natural rest pose: arms hang down instead of the model's T-pose
-    this._restR = 1.25; this._restL = -1.25;
+    this._restR = 1.45; this._restL = -1.45;
     if (this.armBone) this.armBone.rotation.z = this._restR;
     if (this.leftArmBone) this.leftArmBone.rotation.z = this._restL;
     this._waveUntil = 0;
-    this.camera.position.set(hp.x, hp.y - 0.1, hp.z + 2.05);
-    this.camera.lookAt(hp.x, hp.y - 0.28, hp.z);
+    this.camera.position.set(hp.x, hp.y - 0.18, hp.z + 2.55);
+    this.camera.lookAt(hp.x, hp.y - 0.35, hp.z);
     this.lookTarget = new THREE.Object3D();
     this.lookTarget.position.copy(hp).add(new THREE.Vector3(0, 0, 0.5));
     this.scene.add(this.lookTarget);
