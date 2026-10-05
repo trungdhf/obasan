@@ -86,8 +86,8 @@ class VrmAvatar {
     if (this.armBone) this.armBone.rotation.z = this._restR;
     if (this.leftArmBone) this.leftArmBone.rotation.z = this._restL;
     this._waveUntil = 0;
-    this.camera.position.set(hp.x, hp.y - 0.18, hp.z + 2.55);
-    this.camera.lookAt(hp.x, hp.y - 0.35, hp.z);
+    this.camera.position.set(hp.x, hp.y - 0.05, hp.z + 2.6);
+    this.camera.lookAt(hp.x, hp.y - 0.2, hp.z);
     this.lookTarget = new THREE.Object3D();
     this.lookTarget.position.copy(hp).add(new THREE.Vector3(0, 0, 0.5));
     this.scene.add(this.lookTarget);
