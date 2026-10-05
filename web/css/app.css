@@ -28,10 +28,10 @@ body{
 .stage{
   position:relative;border-radius:28px;overflow:hidden;
   background:linear-gradient(var(--sky2),var(--sky));
-  min-height:clamp(440px,78vh,780px);display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+  min-height:calc(100vh - 40px);display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
   padding:16px 12px 8px;transition:background .8s ease;
 }
-@media (max-width:859px){.stage{min-height:64vh}}
+@media (max-width:859px){.stage{min-height:calc(100vh - 20px)}}
 .stage.night{background:linear-gradient(#141C30,#22304D)}
 .stars{position:absolute;inset:0;opacity:0;transition:opacity .8s ease;pointer-events:none}
 .stage.night .stars{opacity:1}
