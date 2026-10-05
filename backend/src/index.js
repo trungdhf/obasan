@@ -77,7 +77,7 @@ app.post('/api/tts', async (req, res) => {
   const text = String(req.body?.text || '').slice(0, 500);
   if (!text) return res.status(400).json({ error: 'text required' });
   try {
-    const audio = await gemini.synthesizeSpeech(text);
+    const audio = await gemini.synthesizeSpeech(text, req.body?.voice);
     if (!audio) return res.status(503).json({ error: 'demo' });
     res.json(audio);
   } catch (e) {

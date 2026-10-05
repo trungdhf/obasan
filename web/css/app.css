@@ -20,16 +20,18 @@ body{
   font-family:"Zen Maru Gothic","Hiragino Maru Gothic ProN","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
   color:var(--ink); background:var(--sky);
 }
-.wrap{max-width:980px;margin:0 auto;padding:20px 16px 32px;display:grid;gap:18px;grid-template-columns:1fr}
-@media (min-width:860px){.wrap{grid-template-columns:1.3fr 1fr;align-items:start}}
+.wrap{max-width:1280px;margin:0 auto;padding:20px 16px 32px;display:grid;gap:18px;grid-template-columns:1fr}
+@media (min-width:860px){.wrap{grid-template-columns:2.1fr .9fr;align-items:start}}
+.panel{align-self:stretch;overflow:auto;max-height:calc(100vh - 40px)}
 
 /* Stage */
 .stage{
   position:relative;border-radius:28px;overflow:hidden;
   background:linear-gradient(var(--sky2),var(--sky));
-  min-height:440px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+  min-height:clamp(440px,78vh,780px);display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
   padding:16px 12px 8px;transition:background .8s ease;
 }
+@media (max-width:859px){.stage{min-height:64vh}}
 .stage.night{background:linear-gradient(#141C30,#22304D)}
 .stars{position:absolute;inset:0;opacity:0;transition:opacity .8s ease;pointer-events:none}
 .stage.night .stars{opacity:1}
@@ -42,7 +44,7 @@ body{
 .bubble::after{content:"";position:absolute;left:50%;bottom:-12px;transform:translateX(-50%);
   border:12px solid transparent;border-top-color:var(--cream);border-bottom:0}
 .bubble.hidden{opacity:0;transform:translateY(6px)}
-svg.char{width:min(100%,380px);height:auto;display:block}
+svg.char{width:min(100%,480px);height:auto;display:block}
 svg.char[hidden],svg.char[style*="none"]{display:none}
 #photo .face{display:none}
 #photo.f-vui .face-vui,#photo.f-buon .face-buon,#photo.f-lolang .face-lolang,
@@ -96,6 +98,18 @@ svg.char[hidden],svg.char[style*="none"]{display:none}
 .meter span{display:block;height:100%;width:0;background:var(--ai);transition:width .05s linear}
 .group{display:grid;gap:8px}
 .group h2{font-size:.95rem;margin:0;color:var(--ink-soft);font-weight:700}
+details.group{border-top:1px dashed var(--line);padding-top:10px}
+details.group>summary{cursor:pointer;font-size:.95rem;font-weight:700;color:var(--ink-soft);list-style:none;user-select:none}
+details.group>summary::before{content:"▸ ";color:var(--ai)}
+details.group[open]>summary::before{content:"▾ "}
+details.group>summary::-webkit-details-marker{display:none}
+details.group>summary+*{margin-top:8px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips button{border-radius:999px;padding:10px 18px;background:var(--ai-soft);border-color:transparent}
+.chips button:active{background:var(--ai);color:var(--panel)}
+.voicelabel{font-size:.9rem;font-weight:700;color:var(--ink-soft);align-self:center}
+select{font:inherit;font-weight:700;color:var(--ink);background:var(--panel);border:1.5px solid var(--ai);border-radius:12px;padding:9px 12px;min-height:44px;max-width:190px}
+#powerBtn.off{background:var(--warn);border-color:var(--warn);color:#fff}
 .btns{display:flex;flex-wrap:wrap;gap:8px}
 button{
   font:inherit;font-weight:700;font-size:.95rem;cursor:pointer;

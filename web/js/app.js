@@ -122,6 +122,11 @@ let callTimer = null, callCount = 0, currentCall = null;
 let standbyTimer = null; // pending transition into standby (farewell in progress)
 let transcriptBuf = '';
 let wakeLock = null;
+// mode toggles (panel モード group)
+let manualOff = false;          // manual sleep — no auto-wake until woken again
+let autoStandby = true;         // auto-sleep when no face for IDLE_TO_STANDY_SEC
+let userVoice = '';             // '' = server default (LIVE_VOICE env)
+try { userVoice = localStorage.getItem('hinata-voice') || ''; } catch { }
 
 // ear: light mic analyser for waking from standby by voice
 let earCtx = null, earAnalyser = null, earBuf = null;
@@ -142,7 +147,7 @@ async function speakTts(text) {
   try {
     const res = await fetch('/api/tts', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ text, voice: userVoice || undefined }),
     });
     if (res.ok) {
       avatar.say(text);
@@ -211,7 +216,7 @@ async function openLive() {
       .replace('{{MEMORY}}', memory?.summary || '（はじめての会話）');
     live = new LiveSession({
       token, model, vertex, location, project,
-      voice: serverCfg.liveVoice || 'Aoede',
+      voice: userVoice || serverCfg.liveVoice || 'Aoede',
       systemPrompt: prompt, tools: TOOLS,
       handlers: {
         onOpen: () => { log('Gemini Live 接続'); setLiveBadge(true); },
@@ -400,6 +405,37 @@ async function reportPresence(present, source) {
   } catch { }
 }
 
+// ---------- quick chips (ひなたにおねがい) ----------
+// Live connected → sent as grandma's request so Hinata answers naturally
+// (weather chips use the get_weather tool; かぞく uses notify_family).
+// Demo/no-Live fallback: canned lines, real JMA weather, or the notify endpoint.
+const CHIP_DEMO = {
+  'なぞなぞして': 'なぞなぞだよ！パンはパンでも、たべられないパン、な〜んだ？……フライパン！えへへ。',
+  'たのしいおはなしして': 'むかしむかし、あるところにげんきなおばあさんがすんでいました。あるひ、おはなしするタブレットがやってきて、ふたりはなかよしになったそうな。',
+  'いっしょにたいそうして': 'いっしょにたいそうしよう！イスにつかまってね、むりしないでね。まずふかーく深呼吸…すってー、はいてー。両手をゆっくりあげて〜、さげて〜。',
+  'のうとれであそぼう': 'しりとりしよう！わたしからいくね。「ひ・な・た」！「た」からはじまることば、なんだ？',
+};
+async function chipSay(text) {
+  log(`おねがい: ${text}`);
+  if (manualOff) { manualOff = false; syncModeBtnsRef?.(); } // explicit tap wakes
+  if (avatar.state === 'standby' || standbyTimer || avatar.state === 'calling') goActive('ボタン');
+  if (!live?.connected && !CONFIG.demo) await openLive();
+  if (live?.connected) { live.sendText(text); return; }
+  if (text === 'きょうのてんきは？') {
+    const w = await fetch('/api/tools/weather').then(r => r.json()).catch(() => ({}));
+    speakFallback(w?.summary || 'てんきがよくわからなかった…');
+  } else if (text === 'かぞくにれんらくして') {
+    fetch('/api/tools/notify_family', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'おばあちゃんから「連絡して」のボタン', reason: 'button' }),
+    }).catch(() => { });
+    speakFallback('かぞくにれんらくしておいたよ！');
+  } else {
+    speakFallback(CHIP_DEMO[text] || 'えへへ、いっしょにあそぼう！');
+  }
+}
+let syncModeBtnsRef = null;
+
 // ---------- SSE ----------
 function startEvents() {
   const es = new EventSource('/api/events');
@@ -426,7 +462,8 @@ function onFace(hasFace) {
     if (!faceSeen && faceStreak > 800) {
       faceSeen = true;
       reportPresence(true, 'camera');
-      if (avatar.state === 'standby' || standbyTimer) goActive('顔を検出');
+      if (manualOff) { /* manual sleep — don't auto-wake */ }
+      else if (avatar.state === 'standby' || standbyTimer) goActive('顔を検出');
       else if (avatar.state === 'calling') answerCall('おばあちゃんが来た');
     }
   } else {
@@ -453,21 +490,21 @@ function frame(now) {
   $('meter').style.width = Math.min(100, level * 200) + '%';
 
   // no-face timeout while active
-  if (avatar.state === 'active' && !talking && !avatar.speaking) {
+  if (avatar.state === 'active' && !talking && !avatar.speaking && autoStandby) {
     const awaySec = (now - lastFace) / 1000;
     const left = Math.ceil(CONFIG.idleToStandbySec - awaySec);
     $('timerText').textContent = left > 0 && presence?.mode === 'camera'
       ? `顔が見えなくなって ${Math.floor(awaySec)} 秒`
       : '';
     if (awaySec >= CONFIG.idleToStandbySec) goStandby('顔なし' + CONFIG.idleToStandbySec + '秒');
-  }
+  } else if (!autoStandby) $('timerText').textContent = '';
 
   // voice wake while standby / call answer by voice.
   // !talking: ignore Hinata's own voice (TTS calls / Live speech) reaching the
   // mic — otherwise she wakes herself up and "greets" an empty room.
   const rms = earLevel();
   if (rms > 0.04 && !talking && now > chimingUntil) voiceStreak++; else voiceStreak = 0;
-  if ((avatar.state === 'standby' || standbyTimer) && voiceStreak > 40) goActive('声を検出');
+  if (!manualOff && (avatar.state === 'standby' || standbyTimer) && voiceStreak > 40) goActive('声を検出');
   if (avatar.state === 'calling' && voiceStreak > 25) answerCall('声で応答');
   // mic presence fallback when camera unavailable: voice resets the idle clock
   if (presence?.mode !== 'camera' && avatar.state === 'active' && voiceStreak > 5) lastFace = now;
@@ -521,8 +558,10 @@ async function boot() {
   });
 
   // dev / demo buttons
-  $('standbyBtn').addEventListener('click', () =>
-    avatar.state === 'standby' || standbyTimer ? goActive('画面タッチ') : goStandby('手動'));
+  $('standbyBtn').addEventListener('click', () => {
+    manualOff = false; syncModeBtns();
+    avatar.state === 'standby' || standbyTimer ? goActive('画面タッチ') : goStandby('手動');
+  });
   $('callBtn').addEventListener('click', () =>
     fetch('/api/call', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -535,6 +574,42 @@ async function boot() {
   document.querySelectorAll('#charBtns button').forEach(b =>
     b.addEventListener('click', () => { avatar.bindChar(b.dataset.char); avatar.say(L().hello); }));
   document.querySelector('.panel').addEventListener('click', () => avatar.ensureAudio(), { once: true });
+
+  // ---- モード + voice + quick chips ----
+  const powerBtn = $('powerBtn');
+  function syncModeBtns() {
+    powerBtn.textContent = manualOff ? 'おきる' : 'いまおやすみ';
+    powerBtn.classList.toggle('off', manualOff);
+    const b = $('autoStandbyBtn');
+    b.textContent = '自動おやすみ ' + (autoStandby ? 'ON' : 'OFF');
+    b.setAttribute('aria-pressed', String(autoStandby));
+  }
+  syncModeBtns();
+  syncModeBtnsRef = syncModeBtns;
+  powerBtn.addEventListener('click', () => {
+    manualOff = !manualOff; syncModeBtns();
+    if (manualOff) {
+      log('手動でおやすみ（声・顔での自動復帰オフ）');
+      if (avatar.state !== 'standby' && !standbyTimer) goStandby('手動');
+    } else {
+      log('手動でおきる');
+      goActive('手動');
+    }
+  });
+  $('autoStandbyBtn').addEventListener('click', () => {
+    autoStandby = !autoStandby; syncModeBtns();
+    log('自動おやすみ ' + (autoStandby ? 'ON' : 'OFF（顔が見えなくても起きたまま）'));
+  });
+  const voiceSel = $('voiceSel');
+  voiceSel.value = userVoice;
+  voiceSel.addEventListener('change', () => {
+    userVoice = voiceSel.value;
+    try { localStorage.setItem('hinata-voice', userVoice); } catch { }
+    log(`こえ変更: ${userVoice || 'きてい'}`);
+    if (live?.connected) { closeLive(); openLive(); } // apply now
+  });
+  document.querySelectorAll('#chips button').forEach(b =>
+    b.addEventListener('click', () => chipSay(b.dataset.say)));
 
   startEvents();
   requestAnimationFrame(frame);

@@ -178,25 +178,54 @@
     </div>
 
     <div class="group">
-      <h2>キャラクター</h2>
+      <h2>ひなたにおねがい</h2>
+      <div class="chips" id="chips">
+        <button data-say="なぞなぞして">なぞなぞ</button>
+        <button data-say="きょうのてんきは？">てんき</button>
+        <button data-say="たのしいおはなしして">たのしいはなし</button>
+        <button data-say="いっしょにたいそうして">たいそう</button>
+        <button data-say="のうとれであそぼう">のうとれ</button>
+        <button data-say="かぞくにれんらくして">かぞくにれんらく</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>モード</h2>
+      <div class="btns">
+        <button id="powerBtn">いまおやすみ</button>
+        <button id="autoStandbyBtn" aria-pressed="true">自動おやすみ ON</button>
+      </div>
+      <div class="btns">
+        <label class="voicelabel" for="voiceSel">こえ</label>
+        <select id="voiceSel">
+          <option value="">きてい（Aoede）</option>
+          <option>Aoede</option><option>Kore</option><option>Leda</option>
+          <option>Zephyr</option><option>Puck</option><option>Charon</option>
+          <option>Sulafat</option><option>Vindemiatrix</option>
+        </select>
+      </div>
+    </div>
+
+    <details class="group">
+      <summary>キャラクター</summary>
       <div class="btns" id="charBtns">
         <button data-char="photo">ひなた（表情セット）</button>
         <button data-char="hinata">ひなた（イラスト）</button>
         <button data-char="koharu">こはる（犬）</button>
       </div>
-    </div>
+    </details>
 
-    <div class="group">
-      <h2>動作テスト</h2>
+    <details class="group">
+      <summary>動作テスト</summary>
       <div class="btns">
         <button id="standbyBtn">おやすみ／おきる</button>
         <button class="primary" id="callBtn">呼びかけテスト</button>
         <button id="arriveBtn">応答をシミュレート</button>
       </div>
-    </div>
+    </details>
 
-    <div class="group">
-      <h2>表情（手動テスト）</h2>
+    <details class="group">
+      <summary>表情（手動テスト）</summary>
       <div class="btns" id="moodBtns">
         <button data-mood="normal">ふつう</button>
         <button data-mood="happy">うれしい</button>
@@ -206,12 +235,12 @@
         <button data-mood="scared">こわい</button>
         <button data-mood="surprised">びっくり</button>
       </div>
-    </div>
+    </details>
 
-    <div class="group">
-      <h2>ひなたの行動ログ</h2>
+    <details class="group">
+      <summary>ひなたの行動ログ</summary>
       <ul class="log" id="log"></ul>
-    </div>
+    </details>
   </section>
 </main>
 

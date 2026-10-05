@@ -59,12 +59,14 @@ export async function createLiveToken() {
   return { token: t.name, vertex: false };
 }
 
-const ttsCache = new Map(); // text -> { data, mimeType, at }
+const ttsCache = new Map(); // `${voice}|${text}` -> { data, mimeType, at }
 
 // Pre-generated call line → base64 PCM (audio/L16;rate=24000).
-export async function synthesizeSpeech(text) {
+export async function synthesizeSpeech(text, voice) {
   if (!ai) return null;
-  const hit = ttsCache.get(text);
+  const voiceName = /^[A-Za-z]{2,20}$/.test(voice || '') ? voice : TTS_VOICE;
+  const key = `${voiceName}|${text}`;
+  const hit = ttsCache.get(key);
   if (hit) return hit;
   const res = await ai.models.generateContent({
     model: TTS_MODEL,
@@ -73,7 +75,7 @@ export async function synthesizeSpeech(text) {
       responseModalities: ['AUDIO'],
       speechConfig: {
         languageCode: 'ja-JP',
-        voiceConfig: { prebuiltVoiceConfig: { voiceName: TTS_VOICE } }
+        voiceConfig: { prebuiltVoiceConfig: { voiceName } }
       }
     }
   });
@@ -81,6 +83,6 @@ export async function synthesizeSpeech(text) {
   if (!part) throw new Error('TTS returned no audio');
   const out = { data: part.inlineData.data, mimeType: part.inlineData.mimeType || 'audio/L16;rate=24000' };
   if (ttsCache.size > 100) ttsCache.clear();
-  ttsCache.set(text, out);
+  ttsCache.set(key, out);
   return out;
 }
