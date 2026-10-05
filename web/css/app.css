@@ -36,14 +36,15 @@ body{
 .stars{position:absolute;inset:0;opacity:0;transition:opacity .8s ease;pointer-events:none}
 .stage.night .stars{opacity:1}
 .bubble{
-  position:relative;max-width:min(92%,460px);background:var(--cream);color:#33291F;
+  position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:5;
+  max-width:min(92%,460px);background:var(--cream);color:#33291F;
   border-radius:22px;padding:14px 20px;font-size:clamp(1.15rem,2.6vw,1.45rem);line-height:1.55;
-  font-weight:700;text-align:center;box-shadow:0 2px 0 #E2CFAE;margin-bottom:6px;
+  font-weight:700;text-align:center;box-shadow:0 2px 0 #E2CFAE;
   transition:opacity .3s ease,transform .3s ease;
 }
 .bubble::after{content:"";position:absolute;left:50%;bottom:-12px;transform:translateX(-50%);
   border:12px solid transparent;border-top-color:var(--cream);border-bottom:0}
-.bubble.hidden{opacity:0;transform:translateY(6px)}
+.bubble.hidden{opacity:0;transform:translateX(-50%) translateY(-8px)}
 svg.char{width:min(100%,480px);height:auto;display:block}
 svg.char[hidden],svg.char[style*="none"]{display:none}
 #photo .face{display:none}

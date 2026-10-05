@@ -79,8 +79,15 @@ class VrmAvatar {
     const hp = head ? head.getWorldPosition(new THREE.Vector3()) : new THREE.Vector3(0, 1.3, 0);
     this.headBone = head;
     this.armBone = vrm.humanoid?.getNormalizedBoneNode('rightUpperArm');
-    this.camera.position.set(hp.x, hp.y - 0.05, hp.z + 1.5);
-    this.camera.lookAt(hp.x, hp.y - 0.15, hp.z);
+    this.leftArmBone = vrm.humanoid?.getNormalizedBoneNode('leftUpperArm');
+    this.forearmBone = vrm.humanoid?.getNormalizedBoneNode('rightLowerArm');
+    // natural rest pose: arms hang down instead of the model's T-pose
+    this._restR = 1.25; this._restL = -1.25;
+    if (this.armBone) this.armBone.rotation.z = this._restR;
+    if (this.leftArmBone) this.leftArmBone.rotation.z = this._restL;
+    this._waveUntil = 0;
+    this.camera.position.set(hp.x, hp.y - 0.1, hp.z + 2.05);
+    this.camera.lookAt(hp.x, hp.y - 0.28, hp.z);
     this.lookTarget = new THREE.Object3D();
     this.lookTarget.position.copy(hp).add(new THREE.Vector3(0, 0, 0.5));
     this.scene.add(this.lookTarget);
@@ -135,6 +142,7 @@ class VrmAvatar {
     this.applyClasses();
   }
   setState(s) { this.state = s; this.applyClasses(); }
+  waveHello(ms = 2400) { this._waveUntil = performance.now() + ms; }
   say(text, { est } = {}) {
     this.bubble.textContent = text;
     this.bubble.classList.remove('hidden');
@@ -197,10 +205,21 @@ class VrmAvatar {
       this.headBone.rotation.y = Math.sin(t * 0.7) * amp;
       this.headBone.rotation.x = Math.sin(t * 0.53 + 1) * (standby ? 0.1 : 0.05) + (standby ? 0.12 : 0);
     }
+    const waving = now < this._waveUntil;
     if (this.armBone) {
-      // wave the raised arm while calling, otherwise let it rest
-      const targetZ = this.state === 'calling' ? -1.1 + Math.sin(t * 5) * 0.35 : 0;
-      this.armBone.rotation.z += (targetZ - this.armBone.rotation.z) * Math.min(1, dt * 5);
+      // hello wave > calling wave > rest at the side
+      const targetZ = waving ? -1.35 + Math.sin(t * 6) * 0.12
+        : this.state === 'calling' ? -1.1 + Math.sin(t * 5) * 0.35
+        : this._restR;
+      this.armBone.rotation.z += (targetZ - this.armBone.rotation.z) * Math.min(1, dt * (waving ? 10 : 5));
+    }
+    if (this.forearmBone) {
+      // forearm sways side to side during the hello wave
+      const targetZ = waving ? Math.sin(t * 8) * 0.45 : 0;
+      this.forearmBone.rotation.z += (targetZ - this.forearmBone.rotation.z) * Math.min(1, dt * 10);
+    }
+    if (this.leftArmBone) {
+      this.leftArmBone.rotation.z += (this._restL - this.leftArmBone.rotation.z) * Math.min(1, dt * 5);
     }
     // look-at wander toward the camera area
     this._look.x = Math.sin(t * 0.4) * 0.12;
@@ -249,6 +268,7 @@ export class HybridAvatar {
   setMood(m) { this.mood = m; this.svgAvatar.setMood(m); this.vrm?.setMood(m); }
   setState(s) { this.state = s; this.svgAvatar.setState(s); this.vrm?.setState(s); }
   say(t, o) { this._active.say(t, o); }
+  waveHello(ms) { this._active.waveHello?.(ms); }
   hideBubble() { this._active.hideBubble(); }
   ensureAudio() { return this._active.ensureAudio(); }
   chime(l) { this._active.chime(l); }

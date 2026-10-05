@@ -325,6 +325,7 @@ function goActive(reason) {
   avatar.setState('active');
   lastFace = performance.now();
   avatar.setMood('happy');
+  avatar.waveHello?.();          // ひなた waves when greeting grandma
   reportPresence(true, reason);
   if (CONFIG.demo) {
     speakFallback(L().welcome);
