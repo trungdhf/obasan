@@ -129,6 +129,59 @@ app.get('/api/memory', async (_req, res) => {
   res.json({ memory: await store.latestMemory() });
 });
 
+// ---- Health log (meal + medicine check-ins, one record per date+period) ----
+
+function jstPeriod() { // meal period from the JST clock
+  const h = jstHour();
+  if (h >= 5 && h < 11) return { period: 'asa', label: 'あさ' };
+  if (h >= 11 && h < 16) return { period: 'hiru', label: 'ひる' };
+  if (h >= 16 && h < 22) return { period: 'yoru', label: 'ゆうがた' };
+  return { period: 'other', label: 'よる' };
+}
+function jstDate() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tokyo' }).format(new Date()); // YYYY-MM-DD
+}
+
+app.post('/api/tools/record_health', async (req, res) => {
+  const b = req.body || {};
+  const valid = v => ['yes', 'no', 'little', 'unknown'].includes(v) ? v : 'unknown';
+  const entry = {
+    date: /^\d{4}-\d{2}-\d{2}$/.test(b.date || '') ? b.date : jstDate(),
+    period: ['asa', 'hiru', 'yoru', 'other'].includes(b.period) ? b.period : jstPeriod().period,
+    ate: valid(b.ate),
+    medicine: valid(b.medicine),
+    note: String(b.note || '').slice(0, 300),
+  };
+  const id = await store.saveHealthLog(entry);
+  await store.log({ type: 'health_log', ...entry });
+  res.json({ ok: true, id, ...entry });
+});
+
+// Family view of the daily meal/medicine log.
+app.get('/api/health-log', async (req, res) => {
+  const days = Math.min(30, Math.max(1, Number(req.query.days) || 7));
+  res.json({ days, entries: await store.listHealthLog(days) });
+});
+
+// Cloud Scheduler entrypoint: at meal times, call the tablet and have
+// Hinata ask grandma whether she ate and took her medicine.
+app.post('/jobs/health-check', async (req, res) => {
+  if (JOB_SECRET && req.get('x-job-secret') !== JOB_SECRET) {
+    return res.status(401).json({ error: 'unauthorized' });
+  }
+  if (isQuietHours()) return res.json({ ok: true, skipped: 'quiet_hours' });
+  const { period, label } = jstPeriod();
+  if (period === 'other') return res.json({ ok: true, skipped: 'not_a_meal_time' });
+  const call = {
+    id: `health_${Date.now()}`,
+    text: `おばあちゃ〜ん、${label}のごはんたべた？おくすりものんだ？ひなたにおしえて〜`,
+    reason: `health_check:${period}`,
+  };
+  await store.log({ type: 'health_check_call', ...call });
+  events.publish('call', call);
+  res.json({ ok: true, delivered: events.clientCount() > 0, ...call });
+});
+
 app.get('/api/tools/weather', async (_req, res) => {
   const w = jma.getWeather();
   if (Date.now() - (w.updatedAt || 0) > 15 * 60_000) await jma.refreshWeather();

@@ -1,5 +1,5 @@
 // Persistence layer: Firestore when GOOGLE_CLOUD_PROJECT is set, in-memory otherwise.
-// Collections: memories, reminders, agent_log, family_messages, alerts.
+// Collections: memories, reminders, agent_log, family_messages, alerts, health_log.
 
 class MemoryStore {
   constructor() {
@@ -8,7 +8,19 @@ class MemoryStore {
     this.agentLog = [];
     this.familyMessages = [];
     this.alerts = [];
+    this.healthLog = [];
     this.mode = 'memory';
+  }
+  async saveHealthLog(entry) { // one record per date+period, upserted
+    const key = `${entry.date}_${entry.period}`;
+    const i = this.healthLog.findIndex(h => `${h.date}_${h.period}` === key);
+    const rec = { ...entry, at: Date.now() };
+    if (i >= 0) this.healthLog[i] = rec; else this.healthLog.push(rec);
+    return key;
+  }
+  async listHealthLog(days = 7) {
+    const cutoff = Date.now() - days * 86400_000;
+    return this.healthLog.filter(h => h.at >= cutoff).sort((a, b) => b.at - a.at);
   }
   async saveMemory(entry) {
     this.memories.push({ ...entry, at: Date.now() });
@@ -91,6 +103,16 @@ class FirestoreStore {
   async latestAlert() {
     const snap = await this.db.collection('alerts').orderBy('at', 'desc').limit(1).get();
     return snap.empty ? null : snap.docs[0].data();
+  }
+  async saveHealthLog(entry) { // doc id = date_period → one record per meal
+    const key = `${entry.date}_${entry.period}`;
+    await this.db.collection('health_log').doc(key).set({ ...entry, at: Date.now() }, { merge: true });
+    return key;
+  }
+  async listHealthLog(days = 7) {
+    const cutoff = Date.now() - days * 86400_000;
+    const snap = await this.db.collection('health_log').where('at', '>=', cutoff).orderBy('at', 'desc').get();
+    return snap.docs.map(d => d.data());
   }
 }
 

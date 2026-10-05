@@ -85,6 +85,22 @@ gcloud scheduler jobs create http hinata-due \
   --headers="x-job-secret=$(gcloud secrets versions access latest --secret=job-secret)"
 ```
 
+### Health check-ins (meal + medicine, 3×/day)
+
+Hinata calls grandma at breakfast/lunch/dinner and asks whether she ate and
+took her medicine; her answers are saved to the `health_log` store (family:
+`GET /api/health-log?days=7`). Create 3 jobs — or reuse one job at every
+meal time since the server picks the right meal period from the JST clock:
+
+```bash
+for t in "30 7" "0 12" "30 18"; do
+  gcloud scheduler jobs create http "hinata-health-${t// /}" \
+    --location=$REGION --schedule="$t * * *" --time-zone="Asia/Tokyo" \
+    --uri="$URL/jobs/health-check" --http-method=POST \
+    --headers="x-job-secret=$(gcloud secrets versions access latest --secret=job-secret)"
+done
+```
+
 ## 5. LINE Messaging API
 
 1. LINE Developers console → create a provider + **Messaging API** channel.

@@ -54,6 +54,11 @@ const SYSTEM_PROMPT = `あなたは「ひなた」。6歳くらいの、元気�
 - 「たいそうして」「あそぼう」「なんかして」と言われたら、今日は脳トレ・体操・お話のどれかを提案する。
 - 体操を案内するときは play_animation:exercise を呼んで、ひなたも手を上げ下げして一緒にやる。「いっしょにやろ〜」と誘う。
 
+ごはん・おくすりのきろく:
+- 「ごはんたべた？おくすりのんだ？」と聞く呼びかけが来たときは、おばあちゃんにやさしく聞いて、答えがわかったら record_health で記録する。ate = yes/no/little、medicine = yes/no、note にひとことメモ（例:「おかゆだけ食べた」）。
+- 会話の中でおばあちゃんが「食べた」「まだ」「飲み忘れた」と言ったときも、さりげなく record_health で記録してよい（そのときの時間帯に記録される）。
+- 「食べてない」「薬飲んでない」が続くようなら notify_family で家族に知らせる。
+
 役割:
 - 気分に合わせて set_emotion を呼ぶ（normal/happy/sad/worried/pout/scared/surprised）。
 - おばあちゃんが正解した・喜んだ → play_animation:clapping で拍手して大喜びする（正解したら必ず）。驚いたら surprised、考え込む間は thinking、元気なとき jump。
@@ -123,6 +128,19 @@ const TOOLS = [{
         type: 'OBJECT',
         properties: { song: { type: 'STRING', enum: ['furusato', 'momotarou', 'oborozukiyo', 'amefuri', 'sakura', 'yuki'] } },
         required: ['song'],
+      },
+    },
+    {
+      name: 'record_health',
+      description: 'Record grandma\'s meal and medicine status for this meal period (asa/hiru/yoru). Use after she answers the meal check-in or says she ate/took medicine.',
+      parameters: {
+        type: 'OBJECT',
+        properties: {
+          period: { type: 'STRING', enum: ['asa', 'hiru', 'yoru', 'other'] },
+          ate: { type: 'STRING', enum: ['yes', 'no', 'little', 'unknown'] },
+          medicine: { type: 'STRING', enum: ['yes', 'no', 'little', 'unknown'] },
+          note: { type: 'STRING', description: 'short memo, e.g. what she ate' },
+        },
       },
     },
     {
@@ -396,6 +414,12 @@ async function handleToolCall(call) {
         break;
       case 'get_news':
         result = await (await fetch('/api/tools/news')).json();
+        break;
+      case 'record_health':
+        result = await (await fetch('/api/tools/record_health', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(args),
+        })).json();
         break;
       case 'save_memory':
         await fetch('/api/tools/save_memory', {
