@@ -198,9 +198,17 @@ function log(msg) {
 }
 
 // ---------- speaking backends ----------
+const speechSrcs = new Set(); // in-flight TTS PCM buffers — stop them before
+// speaking again or two Gemini voices play over each other
+function stopSpeech() {
+  for (const s of speechSrcs) { try { s.stop(); } catch { } }
+  ttsPlaying = Math.max(0, ttsPlaying - speechSrcs.size);
+  speechSrcs.clear();
+  try { speechSynthesis.cancel(); } catch { }
+}
 async function speakTts(text) {
   // Pre-generated line via Gemini TTS (backend). Falls back to speechSynthesis.
-  try { speechSynthesis.cancel(); } catch { } // kill any browser-TTS line still speaking — else two voices overlap
+  stopSpeech(); // kill any browser-TTS line or PCM still playing — else two voices overlap
   try {
     const res = await fetch('/api/tts', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -237,8 +245,9 @@ function playPcm(b64, mimeType = 'audio/L16;rate=24000') {
       const src = ttsCtx.createBufferSource();
       src.buffer = buf;
       src.connect(ttsAnalyser);
+      speechSrcs.add(src);
       ttsPlaying++;
-      src.onended = () => { ttsPlaying--; resolve(); };
+      src.onended = () => { speechSrcs.delete(src); ttsPlaying--; resolve(); };
       src.start();
     } catch { resolve(); }
   });
@@ -289,7 +298,7 @@ async function playSong(key) {
     ttsBuf = new Float32Array(ttsAnalyser.fftSize);
   }
   if (ttsCtx.state === 'suspended') { try { await ttsCtx.resume(); } catch { } }
-  try { speechSynthesis.cancel(); } catch { } // don't let a browser-TTS line talk over the music
+  stopSpeech(); // don't let a TTS line talk over the music
   const file = SONGS[key] ? key : 'furusato';
   songEl = new Audio(`/audio/songs/${file}.mp3`);
   songNode = ttsCtx.createMediaElementSource(songEl);
@@ -305,8 +314,15 @@ async function playSong(key) {
 }
 
 // ---------- Gemini Live ----------
+let liveOpening = null; // serialise opens — goActive and chipSay can both
+// call openLive; without this, two sessions run in parallel (two voices)
 async function openLive() {
   if (CONFIG.demo || live?.connected) return;
+  if (liveOpening) return liveOpening;
+  liveOpening = _openLive();
+  try { await liveOpening; } finally { liveOpening = null; }
+}
+async function _openLive() {
   try {
     const [tokenRes, memRes] = await Promise.all([
       fetch('/api/token'), fetch('/api/memory'),
@@ -317,13 +333,15 @@ async function openLive() {
     const prompt = SYSTEM_PROMPT
       .replace('{{NOW}}', new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }))
       .replace('{{MEMORY}}', memory?.summary || '（はじめての会話）');
-    live = new LiveSession({
+    const session = new LiveSession({
       token, model, vertex, location, project,
       voice: userVoice || serverCfg.liveVoice || 'Zephyr',
       systemPrompt: prompt, tools: TOOLS,
       handlers: {
         onOpen: () => { log('Gemini Live 接続'); setLiveBadge(true); },
-        onClose: (r) => { log(`Live 切断 (${r})`); setLiveBadge(false); live = null; },
+        // Only clear `live` if THIS session is still the current one — a
+        // stale onClose from a just-replaced session must not null the new one.
+        onClose: (r) => { log(`Live 切断 (${r})`); if (live === session) { setLiveBadge(false); live = null; } },
         onTranscript: (text, done) => {
           transcriptBuf += text;
           // Vertex sometimes leaks tool call/response JSON into the output
@@ -343,6 +361,7 @@ async function openLive() {
         onError: (e) => { console.warn('[live]', e); log(`Live エラー: ${e.message || e}`); },
       },
     });
+    live = session;
     await live.connect();
     // Grandma may have gone standby while the handshake was in flight.
     // Tear the session down or it stays alive — billing continues and the
@@ -486,6 +505,7 @@ function goStandby(reason) {
   // repetitive monologue. Closing the socket right away also stops billing.
   stopSong();
   if (live?.connected) { closeLive(); setLiveBadge(false); }
+  stopSpeech(); // stop anything else talking before the farewell
   speakTts(bye).then(() => avatar.hideBubble()); // bubble stays until the line finishes
   clearTimeout(standbyTimer);
   standbyTimer = setTimeout(() => {
