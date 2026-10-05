@@ -41,6 +41,12 @@ const SYSTEM_PROMPT = `あなたは「ひなた」。6歳くらいの、元気�
 - 「なんかおもしろい話して」「なぞなぞして」と言われたら、短く答えて、一緒に楽しむ。
 - 1回に詰め込みすぎない。おばあちゃんが喜んだら続きをする。
 
+うた:
+- ひなたは歌うのが大好き。「うたって」と言われたら、おばあちゃんが知ってそうな日本の歌を歌う: ふるさと、ちょうちょう、ももたろう、たきび、うさぎ、夏の思い出、故郷の空 など。
+- ゆっくり・はっきり・楽しそうに、1番だけ歌う。途中で「♪」をつけてノリノリで。
+- 歌い終わったら「つぎはおばあちゃんもいっしょにうたお？」と誘う。おばあちゃんが歌い出したら一緒に歌う。
+- 会話がしずまったとき、たまに「うたうたおっか〜」と自分から提案してもいい。
+
 脳トレと体操:
 - おばあちゃんの脳のために、軽い脳トレをよく提案する: しりとり、かんたんな足し算引き算（百まで）、なぞなぞ、「さっきの話おぼえてる？」の思い出しクイズ、この漢字なーんだ、の頭の体操。間違えても否定せず、やさしく一緒に考える。正解したら大げさに褒める。
 - 体操もすすめる: 「ラジオたいそう第一」を口頭でゆっくり案内する（深呼吸・両手を上げる・ひねる等を一言ずつ）。座ってできる運動（イスに座ったまま手足を上げる・のばす）も教える。
@@ -54,6 +60,7 @@ const SYSTEM_PROMPT = `あなたは「ひなた」。6歳くらいの、元気�
 - おばあちゃんの具合が悪そう、返事がない、危険がありそう → notify_family で家族に連絡。重大な判断は必ず人間（家族）に任せる。
 - 薬・食事・水分の約束は schedule_reminder に登録する。
 - 天気や気温を聞かれたら get_weather、暑さ・警報・災害情報が心配なら get_weather_alert で確認してから答える。警報が出ていたらはっきり伝える。
+- 「ニュースは？」「なんかあった？」と聞かれたら get_news でNHKのトップニュースをとって、やさしい言葉で2〜3本だけ読み上げる。むずかしい話は噛み砕いて。たまに自分から「ニュースよむ？」と提案してもいい。
 - 会話が一区切りついたら save_memory に短い要約を残す（次回につなげるため）。
 
 ルール:
@@ -101,6 +108,11 @@ const TOOLS = [{
     {
       name: 'get_weather_alert',
       description: 'Check current weather warnings/disaster alerts for grandma\'s area',
+      parameters: { type: 'OBJECT', properties: {} },
+    },
+    {
+      name: 'get_news',
+      description: 'Get today\'s top domestic news headlines (NHK). Use when grandma asks for news, or proactively offer the headlines.',
       parameters: { type: 'OBJECT', properties: {} },
     },
     {
@@ -306,6 +318,9 @@ async function handleToolCall(call) {
       case 'get_weather_alert':
         result = await (await fetch('/api/tools/weather_alert')).json();
         break;
+      case 'get_news':
+        result = await (await fetch('/api/tools/news')).json();
+        break;
       case 'save_memory':
         await fetch('/api/tools/save_memory', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -435,6 +450,8 @@ const CHIP_DEMO = {
   'たのしいおはなしして': 'むかしむかし、あるところにげんきなおばあさんがすんでいました。あるひ、おはなしするタブレットがやってきて、ふたりはなかよしになったそうな。',
   'いっしょにたいそうして': 'いっしょにたいそうしよう！イスにつかまってね、むりしないでね。まずふかーく深呼吸…すってー、はいてー。両手をゆっくりあげて〜、さげて〜。',
   'のうとれであそぼう': 'しりとりしよう！わたしからいくね。「ひ・な・た」！「た」からはじまることば、なんだ？',
+  'うたをうたって': 'うたうね〜！♪うさぎおいし〜、かのやま〜、こぶなつりし〜、かのかわ〜♪ …えへへ、ふるさとだよ！',
+  'ニュースおしえて': 'ニュースよんであげるね！…あれ、うまくとれなかった。あとでいっしょにみようね。',
 };
 async function chipSay(text) {
   log(`おねがい: ${text}`);
@@ -445,6 +462,11 @@ async function chipSay(text) {
   if (text === 'きょうのてんきは？') {
     const w = await fetch('/api/tools/weather').then(r => r.json()).catch(() => ({}));
     speakFallback(w?.summary || 'てんきがよくわからなかった…');
+  } else if (text === 'ニュースおしえて') {
+    const n = await fetch('/api/tools/news').then(r => r.json()).catch(() => ({}));
+    speakFallback(n?.headlines?.length
+      ? `きょうのニュースだよ！${n.headlines.slice(0, 3).join('。それと、')}`
+      : CHIP_DEMO['ニュースおしえて']);
   } else if (text === 'かぞくにれんらくして') {
     fetch('/api/tools/notify_family', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
