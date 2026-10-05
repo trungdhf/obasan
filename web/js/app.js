@@ -50,6 +50,7 @@ const SYSTEM_PROMPT = `あなたは「ひなた」。6歳くらいの、元気�
 役割:
 - 気分に合わせて set_emotion を呼ぶ（normal/happy/sad/worried/pout/scared/surprised）。
 - おばあちゃんが正解した・喜んだ → play_animation:clapping で拍手して大喜びする（正解したら必ず）。驚いたら surprised、考え込む間は thinking、元気なとき jump。
+- ツール呼び出しやその結果、JSONは絶対に声に出さない。しゃべるのは自然な日本語だけ。
 - おばあちゃんの具合が悪そう、返事がない、危険がありそう → notify_family で家族に連絡。重大な判断は必ず人間（家族）に任せる。
 - 薬・食事・水分の約束は schedule_reminder に登録する。
 - 天気や気温を聞かれたら get_weather、暑さ・警報・災害情報が心配なら get_weather_alert で確認してから答える。警報が出ていたらはっきり伝える。
@@ -233,7 +234,13 @@ async function openLive() {
         onClose: (r) => { log(`Live 切断 (${r})`); setLiveBadge(false); live = null; },
         onTranscript: (text, done) => {
           transcriptBuf += text;
-          if (transcriptBuf) { avatar.bubble.textContent = transcriptBuf; avatar.bubble.classList.remove('hidden'); }
+          // Vertex sometimes leaks tool call/response JSON into the output
+          // transcription stream — strip brace groups so the bubble only
+          // ever shows spoken Japanese.
+          let shown = transcriptBuf;
+          while (/\{/.test(shown) && shown !== (shown = shown.replace(/\{[^{}]*\}/g, ''))) { }
+          shown = shown.trim();
+          if (shown) { avatar.bubble.textContent = shown; avatar.bubble.classList.remove('hidden'); }
           if (done) transcriptBuf = '';
         },
         onToolCall: handleToolCall,
