@@ -37,7 +37,7 @@ body{
 .stage.night .stars{opacity:1}
 .bubble{
   position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:5;
-  max-width:min(92%,460px);background:var(--cream);color:#33291F;
+  max-width:min(94%,720px);background:var(--cream);color:#33291F;
   border-radius:22px;padding:14px 20px;font-size:clamp(1.15rem,2.6vw,1.45rem);line-height:1.55;
   font-weight:700;text-align:center;box-shadow:0 2px 0 #E2CFAE;
   transition:opacity .3s ease,transform .3s ease;
