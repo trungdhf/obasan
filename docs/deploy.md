@@ -101,7 +101,21 @@ for t in "30 7" "0 12" "30 18"; do
 done
 ```
 
-## 5. LINE Messaging API
+## 5. Family alerts — email (recommended, simplest) or LINE
+
+### 5a. Email via Gmail SMTP (recommended)
+
+1. Google account → **Security → 2-Step Verification → App passwords** → create
+   one named e.g. "hinata" → copy the 16-character password.
+2. Set env vars on the Cloud Run service (or secrets):
+   `SMTP_USER` = your Gmail, `SMTP_PASS` = the app password,
+   `FAMILY_EMAIL` = comma-separated family recipients
+   (`SMTP_HOST`/`SMTP_PORT` default to `smtp.gmail.com:465`).
+3. Redeploy — alerts (no-response, health concerns, weather warnings) arrive as
+   email titled 【ひなた】見守りアラート. Email is one-way; family → grandma
+   messages still use LINE when configured.
+
+### 5b. LINE Messaging API (optional alternative)
 
 1. LINE Developers console → create a provider + **Messaging API** channel.
 2. Channel secret → `line-secret`, long-lived channel access token → `line-token`.
@@ -143,6 +157,7 @@ under Cloud Run → hinata → "Revisions" or Cloud Build → History.
 ## Env reference
 
 See `backend/.env.example`. Minimum for the real experience (Vertex mode):
-`GOOGLE_CLOUD_PROJECT`, `LINE_CHANNEL_SECRET`, `LINE_CHANNEL_ACCESS_TOKEN`,
-`LINE_TARGET_IDS`, `JOB_SECRET` — plus `aiplatform.user` on the service account.
+`GOOGLE_CLOUD_PROJECT`, `JOB_SECRET`, plus family alerts via `SMTP_USER`,
+`SMTP_PASS`, `FAMILY_EMAIL` (or the `LINE_*` set) — plus `aiplatform.user` on
+the service account.
 `GEMINI_API_KEY` is only needed for AI-Studio local dev without GCP.

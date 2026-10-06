@@ -2,7 +2,7 @@
 
 見守りアバター: a tablet companion avatar that talks by voice with elderly people
 living alone in Japan. Hinata proactively checks in, reminds about medicine and
-water, and alerts family over LINE when something seems wrong — an agent that
+water, and alerts family by email (or LINE) when something seems wrong — an agent that
 decides when to speak, when to sleep, and when to call the family, not a chatbot
 waiting for questions.
 
@@ -13,7 +13,7 @@ Google Zen hackathon 2026 entry. Submission deadline: **2026-10-15**.
 | Path | What |
 | --- | --- |
 | `web/` | Tablet app (Android Chrome kiosk): avatar, MediaPipe presence, Gemini Live client, Wake Lock |
-| `backend/` | Cloud Run service: agent logic, LINE webhook, proactive-call triggers, static hosting of `web/` |
+| `backend/` | Cloud Run service: agent logic, email/LINE family alerts, proactive-call triggers, static hosting of `web/` |
 | `docs/` | [Design summary](docs/hinata-design.md) · [Architecture](docs/architecture.md) · [Deploy guide](docs/deploy.md) · [Demo script](docs/demo-script.md) · original [avatar demo](docs/koharu-avatar-demo.html) |
 
 ## How it works
@@ -56,7 +56,7 @@ with the stored conversation summary.
 
 ## Agent tools (declared to Gemini Live)
 
-`set_emotion` (avatar face) · `notify_family` (LINE push) · `schedule_reminder`
+`set_emotion` (avatar face) · `notify_family` (email/LINE push) · `schedule_reminder`
 · `get_weather_alert` · `save_memory` (conversation summary)
 
 ## Run locally
@@ -114,5 +114,5 @@ karaoke lyrics in the bubble.
 - [x] MediaPipe face detection (on-device)
 - [x] Gemini Live wiring (ephemeral token) — needs a funded API key
 - [ ] Deploy to Cloud Run (needs GCP project) — see docs/deploy.md
-- [ ] LINE channel for the family group — see docs/deploy.md
+- [ ] Family alerts: `SMTP_USER`/`SMTP_PASS`/`FAMILY_EMAIL` env vars (Gmail app password) — see docs/deploy.md
 - [ ] ~3 min demo video — see docs/demo-script.md

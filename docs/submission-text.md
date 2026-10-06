@@ -25,7 +25,7 @@ Hinata（ひなた）— 一人暮らしのおばあちゃんと話す、見守�
   リマインダーや食後の「ごはん・おくすり」の聞き取りを発火。
   応答がなければ最大3回呼びかけ（Live未接続のまま TTS で＝課金ゼロ）。
 - **迷わず家族に頼る**: 応答なし・「食べてない」続き・体調不良の発言を
-  検知すると、LINE で家族に通知。最終判断は必ず人間に委ねます。
+  検知すると、LINEまたはメールで家族に通知。最終判断は必ず人間に委ねます。
 - **食事・服薬を記録**: 会話から拾った「食べた/まだ/飲み忘れた」を
   health_log に記録し、家族があとから確認できます。
 
@@ -49,7 +49,7 @@ Hinata（ひなた）— 一人暮らしのおばあちゃんと話す、見守�
   ツール呼び出し）+ Gemini Flash TTS（呼びかけ・別れの挨拶の音声合成）
 - **その他GCP**: Firestore（記憶・リマインダー・ログ・health_log）、
   Cloud Scheduler（/jobs/due, /jobs/health-check）、Secret Manager、Cloud Build
-- **連携**: LINE Messaging API（webhook受信・push通知）、気象庁JMA、NHK RSS
+- **連携**: Gmail SMTP（メール通知）・LINE Messaging API（任意）、気象庁JMA、NHK RSS
 - **フロント**: 純粋な静的HTML/JS — three.js + @pixiv/three-vrm（VRMアバター・
   .vrma アニメーション）/ 手描きSVGアバター、MediaPipe FaceDetector、
   Web Audio（リップシンク・PCM再生）、Wake Lock

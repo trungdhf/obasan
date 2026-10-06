@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { createStore } from './store.js';
 import * as events from './events.js';
 import * as line from './line.js';
+import * as email from './email.js';
 import * as gemini from './gemini.js';
 import * as jma from './jma.js';
 import * as news from './news.js';
@@ -20,6 +21,13 @@ const QUIET_HOURS = (process.env.QUIET_HOURS || '22-7').split('-').map(Number); 
 
 const store = await createStore();
 await line.initLine();
+email.initEmail();
+
+// Family alerts: email first (simpler setup), LINE when configured.
+async function notifyFamily(text) {
+  if (email.emailEnabled()) return email.pushFamilyEmail('【ひなた】見守りアラート', text);
+  return line.pushFamily(text);
+}
 
 const app = express();
 app.disable('x-powered-by');
@@ -41,12 +49,13 @@ function isQuietHours() {
   return from < to ? (h >= from && h < to) : (h >= from || h < to);
 }
 
-app.get('/healthz', (_req, res) => res.json({ ok: true, demo: DEMO, store: store.mode, line: line.lineEnabled() }));
+app.get('/healthz', (_req, res) => res.json({ ok: true, demo: DEMO, store: store.mode, line: line.lineEnabled(), email: email.emailEnabled() }));
 
 app.get('/api/config', (_req, res) => {
   res.json({
     demo: DEMO,
     line: line.lineEnabled(),
+    email: email.emailEnabled(),
     vertex: gemini.isVertex(),
     idleToStandbySec: IDLE_TO_STANDBY_SEC,
     callAttempts: CALL_ATTEMPTS,
@@ -104,7 +113,7 @@ app.post('/api/presence', async (req, res) => {
 app.post('/api/tools/notify_family', async (req, res) => {
   const message = String(req.body?.message || 'おばあちゃんの様子がいつもと違います。確認をお願いします。').slice(0, 500);
   await store.log({ type: 'notify_family', message, reason: req.body?.reason });
-  const result = await line.pushFamily(`【ひなた】${message}`);
+  const result = await notifyFamily(`【ひなた】${message}`);
   res.json({ ok: true, ...result });
 });
 
@@ -231,7 +240,7 @@ app.post('/api/call-result', async (req, res) => {
   await store.log({ type: 'call_result', id, responded: Boolean(responded) });
   let result = {};
   if (!responded) {
-    result = await line.pushFamily('【ひなた】おばあちゃんに3回声をかけましたが応答がありません。様子を確認してください。');
+    result = await notifyFamily('【ひなた】おばあちゃんに3回声をかけましたが応答がありません。様子を確認してください。');
   }
   res.json({ ok: true, ...result });
 });
@@ -282,7 +291,7 @@ jma.startWeatherLoop(async fresh => {
     reason: `weather:${names}`,
   });
   if (severe) {
-    await line.pushFamily(`【ひなた】気象庁から「${names}」が発表されました。おばあちゃんの様子を確認してください。`);
+    await notifyFamily(`【ひなた】気象庁から「${names}」が発表されました。おばあちゃんの様子を確認してください。`);
   }
 });
 

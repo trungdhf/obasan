@@ -16,6 +16,7 @@
     "@google/genai": "^2.27.0",
     "@line/bot-sdk": "^11.3.0",
     "express": "^5.2.1",
-    "google-auth-library": "^10.6.1"
+    "google-auth-library": "^10.6.1",
+    "nodemailer": "^10.0.15"
   }
 }
