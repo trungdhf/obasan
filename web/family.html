@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ひなた — かぞくのみまもりページ</title>
+<style>
+  :root {
+    --bg: #fdf6ec; --card: #ffffff; --ink: #4a3a2c; --soft: #9a8570;
+    --accent: #f0a35e; --ok: #67b06a; --warn: #e07a5f; --line: #f0e2cd;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Noto Sans JP', sans-serif;
+         background: var(--bg); color: var(--ink); line-height: 1.6; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 20px 16px 60px; }
+  header { text-align: center; padding: 18px 0 8px; }
+  header h1 { font-size: 1.5rem; }
+  header p { color: var(--soft); font-size: .85rem; }
+  .card { background: var(--card); border-radius: 18px; padding: 18px 20px;
+          margin-top: 16px; box-shadow: 0 2px 10px rgba(180,140,90,.10); }
+  .card h2 { font-size: 1rem; color: var(--soft); margin-bottom: 10px; font-weight: 600; }
+  .hero { display: flex; align-items: center; gap: 16px; }
+  .hero .face { font-size: 44px; }
+  .hero .big { font-size: 1.35rem; font-weight: 700; }
+  .hero .sub { color: var(--soft); font-size: .85rem; }
+  .pill { display: inline-block; padding: 2px 12px; border-radius: 999px;
+          font-size: .8rem; font-weight: 700; }
+  .pill.ok { background: #e6f4e6; color: var(--ok); }
+  .pill.warn { background: #fdeae4; color: var(--warn); }
+  .pill.na { background: #f4eee4; color: var(--soft); }
+  .meals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .meal { border: 1px solid var(--line); border-radius: 14px; padding: 12px;
+          text-align: center; }
+  .meal h3 { font-size: .9rem; color: var(--soft); margin-bottom: 6px; }
+  .meal .row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 4px; }
+  .meal .item { font-size: .78rem; color: var(--soft); }
+  .meal .item b { display: block; font-size: 1.15rem; color: var(--ink); }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; }
+  .dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); }
+  .dot.little { background: var(--accent); } .dot.na { background: #ddd; }
+  table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+  th { text-align: left; color: var(--soft); font-weight: 600; padding: 6px 4px;
+       border-bottom: 1px solid var(--line); }
+  td { padding: 7px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  .ev { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .ev:last-child { border-bottom: none; }
+  .ev .t { color: var(--soft); font-size: .75rem; white-space: nowrap; min-width: 86px; }
+  .ev .d { font-size: .88rem; }
+  .ev.alert .d { color: var(--warn); font-weight: 600; }
+  .memo { font-size: .92rem; }
+  .memo .t { color: var(--soft); font-size: .75rem; }
+  .empty { color: var(--soft); font-size: .85rem; }
+  .re { font-size: .88rem; padding: 5px 0; }
+  .re b { color: var(--accent); }
+  footer { text-align: center; color: var(--soft); font-size: .75rem; margin-top: 24px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>ひなた <span style="font-weight:400">—</span> みまもりページ</h1>
+    <p>おばあちゃんのいえのタブレット「ひなた」のきろくです · <span id="upd"></span></p>
+  </header>
+
+  <div class="card" id="statusCard">
+    <div class="hero">
+      <div class="face" id="presFace">👵</div>
+      <div>
+        <div class="big" id="presText">よみこみちゅう…</div>
+        <div class="sub" id="presSub"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>きょうの ようす（ごはん・おくすり・げんき・きぶん）</h2>
+    <div class="meals" id="meals"></div>
+  </div>
+
+  <div class="card">
+    <h2>ひなたが おぼえていること</h2>
+    <div class="memo" id="memo"><span class="empty">まだきろくがありません</span></div>
+  </div>
+
+  <div class="card">
+    <h2>1しゅうかんの きろく</h2>
+    <table><thead><tr><th>ひ</th><th>じかんたい</th><th>ごはん</th><th>おくすり</th><th>げんき</th><th>きぶん</th><th>メモ</th></tr></thead>
+    <tbody id="week"></tbody></table>
+  </div>
+
+  <div class="card" id="reCard" style="display:none">
+    <h2>よていされている よびかけ</h2>
+    <div id="res"></div>
+  </div>
+
+  <div class="card">
+    <h2>さいきんの できごと</h2>
+    <div id="events"></div>
+  </div>
+
+  <footer>ひなた — おばあちゃんの みまもりアバター<br>このページは かぞく専用です</footer>
+</div>
+
+<script>
+const KEY = new URLSearchParams(location.search).get('key') || '';
+const JST = { timeZone: 'Asia/Tokyo' };
+const tJST = ms => new Date(ms).toLocaleString('ja-JP', { ...JST, month:'numeric', day:'numeric', hour:'numeric', minute:'2-digit' });
+const agoJST = ms => {
+  const s = Math.max(0, Math.floor((Date.now() - ms) / 1000));
+  if (s < 60) return `${s}びょうまえ`;
+  if (s < 3600) return `${Math.floor(s/60)}ふんまえ`;
+  if (s < 86400) return `${Math.floor(s/3600)}じかんまえ`;
+  return `${Math.floor(s/86400)}にちまえ`;
+};
+const ATE = { yes:['たべた','ok'], little:['すこし','little'], no:['たべてない','warn'], unknown:['—','na'] };
+const MED = { yes:['のんだ','ok'], little:['すこし','little'], no:['のんでない','warn'], unknown:['—','na'] };
+const COND = { genki:['げんき','ok'], tired:['つかれ','little'], bad:['ぐあいわるい','warn'], unknown:['—','na'] };
+const MOOD = { happy:['うれしい','ok'], calm:['おだやか','ok'], lonely:['さびしい','little'], sad:['かなしい','warn'], worried:['しんぱい','warn'], unknown:['—','na'] };
+const PERIOD = { asa:'あさ', hiru:'ひる', yoru:'ゆうがた', other:'よる' };
+const EV = {
+  presence: e => e.present ? 'おばあちゃんが いるのを かくにん' : 'おばあちゃんが いなくなった',
+  notify_family: e => `かぞくに れんらく: ${e.message||''}`,
+  health_log: e => `けんこうきろく (${PERIOD[e.period]||e.period})`,
+  health_check_call: e => 'ごはん・おくすりの かくにんコール',
+  reminder_fired: e => `おしらせ: ${e.label||''}`,
+  schedule_reminder: e => `よていを とうろく: ${e.label||''}`,
+  call_started: e => `よびかけ: ${e.text||''}`,
+  call_result: e => e.responded ? 'おばあちゃんが こたえた' : 'おばあちゃんが こたえなかった',
+  call_failed: e => 'よびかけが つうじなかった',
+  jma_warning: e => `きしょうけいほう: ${(e.warnings||[]).join('、')}`,
+  family_message: e => `かぞくから メッセージ (${e.from||''})`,
+  family_email: e => 'かぞくに メールを おくった',
+  save_memory: e => `おぼえたこと: ${(e.summary||'').slice(0,80)}`,
+  job_skipped_quiet_hours: e => 'やかんのため おしらせを おやすみ',
+  job_due: e => 'よていどうりの おしらせを チェック',
+};
+const ALERT_TYPES = new Set(['notify_family','jma_warning']);
+
+async function load() {
+  const r = await fetch('/api/family' + (KEY ? `?key=${encodeURIComponent(KEY)}` : ''));
+  if (r.status === 401) { document.getElementById('presText').textContent = 'アクセスできません (key? )'; return; }
+  const d = await r.json();
+  document.getElementById('upd').textContent = 'こうしん: ' + tJST(d.at);
+
+  // presence
+  const pf = document.getElementById('presFace'), pt = document.getElementById('presText'), ps = document.getElementById('presSub');
+  if (d.presence) {
+    if (d.presence.present) {
+      pf.textContent = '😊'; pt.textContent = 'おばあちゃんは へやに います';
+      pf.style.cssText = '';
+    } else {
+      pf.textContent = '🚪'; pt.textContent = 'おばあちゃんは へやに いません';
+    }
+    ps.textContent = `さいごの かくにん: ${agoJST(d.presence.at)} (${tJST(d.presence.at)})`;
+  } else { pt.textContent = 'まだ じょうほうが ありません'; ps.textContent = 'タブレットが みつかり次第 ひょうじされます'; }
+
+  // today meals
+  const today = d.health.filter(h => h.date === d.dateJst);
+  document.getElementById('meals').innerHTML = ['asa','hiru','yoru'].map(p => {
+    const e = today.find(h => h.period === p) || {};
+    const a = ATE[e.ate] || ATE.unknown, m = MED[e.medicine] || MED.unknown;
+    const c = COND[e.condition] || COND.unknown, mo = MOOD[e.mood] || MOOD.unknown;
+    return `<div class="meal"><h3>${PERIOD[p]}</h3>
+      <div class="row"><span class="item"><b>🍚</b><span class="dot ${a[1]}"></span>${a[0]}</span>
+      <span class="item"><b>💊</b><span class="dot ${m[1]}"></span>${m[0]}</span>
+      <span class="item"><b>💪</b><span class="dot ${c[1]}"></span>${c[0]}</span>
+      <span class="item"><b>☺️</b><span class="dot ${mo[1]}"></span>${mo[0]}</span></div>
+      ${e.note ? `<div style="font-size:.75rem;color:var(--soft);margin-top:6px">${e.note}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  // memory
+  if (d.memory) document.getElementById('memo').innerHTML =
+    `<div>${d.memory.summary}</div><div class="t">${tJST(d.memory.at)}</div>`;
+
+  // week table
+  document.getElementById('week').innerHTML = d.health.length ? d.health.map(e => {
+    const a = ATE[e.ate] || ATE.unknown, m = MED[e.medicine] || MED.unknown;
+    const c = COND[e.condition] || COND.unknown, mo = MOOD[e.mood] || MOOD.unknown;
+    const dt = e.date.slice(5).replace('-','/');
+    return `<tr><td>${dt}</td><td>${PERIOD[e.period]||e.period}</td>
+      <td><span class="dot ${a[1]}"></span>${a[0]}</td>
+      <td><span class="dot ${m[1]}"></span>${m[0]}</td>
+      <td><span class="dot ${c[1]}"></span>${c[0]}</td>
+      <td><span class="dot ${mo[1]}"></span>${mo[0]}</td>
+      <td style="font-size:.78rem;color:var(--soft)">${e.note||''}</td></tr>`;
+  }).join('') : '<tr><td colspan="7" class="empty">まだきろくがありません</td></tr>';
+
+  // reminders
+  const res = d.reminders || [];
+  document.getElementById('reCard').style.display = res.length ? '' : 'none';
+  document.getElementById('res').innerHTML = res.map(r =>
+    `<div class="re"><b>${tJST(r.at)}</b> — ${r.label||''}</div>`).join('');
+
+  // events
+  document.getElementById('events').innerHTML = (d.events||[]).length ? d.events.map(e =>
+    `<div class="ev ${ALERT_TYPES.has(e.type)?'alert':''}">
+      <div class="t">${tJST(e.at)}</div><div class="d">${(EV[e.type]||(()=>e.type))(e)}</div>
+    </div>`).join('') : '<div class="empty">まだ できごとが ありません</div>';
+}
+
+load().catch(e => { document.getElementById('presText').textContent = 'よみこめません: ' + e.message; });
+setInterval(() => load().catch(()=>{}), 60000);
+</script>
+</body>
+</html>

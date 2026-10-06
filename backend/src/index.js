@@ -102,9 +102,11 @@ app.get('/api/events', (req, res) => {
 });
 
 // Presence reports from the tablet's on-device face detection (no images sent).
+let lastPresence = null;
 app.post('/api/presence', async (req, res) => {
   const present = Boolean(req.body?.present);
-  await store.log({ type: 'presence', present, source: req.body?.source || 'camera' });
+  lastPresence = { present, at: Date.now(), source: req.body?.source || 'camera' };
+  await store.log({ type: 'presence', present, source: lastPresence.source });
   res.json({ ok: true });
 });
 
@@ -159,6 +161,8 @@ app.post('/api/tools/record_health', async (req, res) => {
     period: ['asa', 'hiru', 'yoru', 'other'].includes(b.period) ? b.period : jstPeriod().period,
     ate: valid(b.ate),
     medicine: valid(b.medicine),
+    condition: ['genki', 'tired', 'bad', 'unknown'].includes(b.condition) ? b.condition : 'unknown',
+    mood: ['happy', 'calm', 'lonely', 'sad', 'worried', 'unknown'].includes(b.mood) ? b.mood : 'unknown',
     note: String(b.note || '').slice(0, 300),
   };
   const id = await store.saveHealthLog(entry);
@@ -172,6 +176,25 @@ app.get('/api/health-log', async (req, res) => {
   res.json({ days, entries: await store.listHealthLog(days) });
 });
 
+// ---- Family dashboard (/family) ----
+// Optional shared secret: set FAMILY_TOKEN and the page needs ?key=<token>.
+const FAMILY_TOKEN = process.env.FAMILY_TOKEN || '';
+
+app.get('/api/family', async (req, res) => {
+  if (FAMILY_TOKEN && req.query.key !== FAMILY_TOKEN) {
+    return res.status(401).json({ error: 'unauthorized' });
+  }
+  res.json({
+    at: Date.now(),
+    dateJst: jstDate(),
+    presence: lastPresence,                    // {present, at, source} or null
+    health: await store.listHealthLog(7),      // last 7 days of meal/medicine records
+    memory: await store.latestMemory(),        // Hinata's latest conversation summary
+    reminders: await store.listReminders(),    // still pending
+    events: await store.listLog(40),           // newest first
+  });
+});
+
 // Cloud Scheduler entrypoint: at meal times, call the tablet and have
 // Hinata ask grandma whether she ate and took her medicine.
 app.post('/jobs/health-check', async (req, res) => {
@@ -183,7 +206,7 @@ app.post('/jobs/health-check', async (req, res) => {
   if (period === 'other') return res.json({ ok: true, skipped: 'not_a_meal_time' });
   const call = {
     id: `health_${Date.now()}`,
-    text: `おばあちゃ〜ん、${label}のごはんたべた？おくすりものんだ？ひなたにおしえて〜`,
+    text: `おばあちゃ〜ん、${label}のごはんたべた？おくすりものんだ？きょうはげんき？ひなたにおしえて〜`,
     reason: `health_check:${period}`,
   };
   await store.log({ type: 'health_check_call', ...call });
@@ -301,6 +324,7 @@ jma.startWeatherLoop(async fresh => {
 // stale JS on the tablet). The VRM model keeps a long cache.
 app.use('/models', express.static(path.join(WEB_DIR, 'models'), { maxAge: '7d' }));
 app.use(express.static(WEB_DIR, { maxAge: 0 }));
+app.get('/family', (_req, res) => res.sendFile(path.join(WEB_DIR, 'family.html')));
 app.get('/{*splat}', (_req, res) => res.sendFile(path.join(WEB_DIR, 'index.html')));
 
 app.listen(PORT, () => {

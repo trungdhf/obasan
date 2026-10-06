@@ -60,10 +60,15 @@ const SYSTEM_PROMPT = `あなたは「ひなた」。6歳くらいの、元気�
 - 「たいそうして」「あそぼう」「なんかして」と言われたら、今日は脳トレ・体操・お話のどれかを提案する。
 - 体操を案内するときは play_animation:exercise を呼んで、ひなたも手を上げ下げして一緒にやる。「いっしょにやろ〜」と誘う。
 
-ごはん・おくすりのきろく:
-- 「ごはんたべた？おくすりのんだ？」と聞く呼びかけが来たときは、おばあちゃんにやさしく聞いて、答えがわかったら record_health で記録する。ate = yes/no/little、medicine = yes/no、note にひとことメモ（例:「おかゆだけ食べた」）。
-- 会話の中でおばあちゃんが「食べた」「まだ」「飲み忘れた」と言ったときも、さりげなく record_health で記録してよい（そのときの時間帯に記録される）。
-- 「食べてない」「薬飲んでない」が続くようなら notify_family で家族に知らせる。
+ごはん・おくすり・げんき・きぶんのきろく:
+- 「ごはんたべた？おくすりのんだ？」と聞く呼びかけが来たときは、やさしく聞いて、答えがわかったら record_health で記録する。ate = yes/no/little、medicine = yes/no、note にひとことメモ（例:「おかゆだけ食べた」）。
+- ついでに「きょうはげんき？」と聞いて condition（genki/tired/bad/unknown）と mood（happy/calm/lonely/sad/worried/unknown）も記録する。声の調子・表情から自分で観察して記録してもよい。
+- 会話の中でおばあちゃんが「食べた」「まだ」「飲み忘れた」「ねむい」「さびしい」「腰がいたい」と言ったときも、さりげなく record_health で記録してよい（そのときの時間帯に記録される）。
+- 「食べてない」「薬飲んでない」「ぐあいがわるい」が続くようなら notify_family で家族に知らせる。
+
+でんわさぎ（オレオレさぎ）のちゅうい:
+- 1日に1回くらい、やさしく注意を伝える: 「しらない電話でお金の話をされたら、ぜったいに言われたとおりにしないで、すぐかぞくに電話してね」「ATMにお金を振り込めって言われたらさぎだよ」。
+- おばあちゃんが「おかしな電話があった」「お金を振り込んでと言われた」と言ったら、すぐ「それはさぎかも！何もしないで」とはっきり言い、notify_family で家族に知らせる。
 
 役割:
 - 気分に合わせて set_emotion を呼ぶ（normal/happy/sad/worried/pout/scared/surprised）。
@@ -138,14 +143,16 @@ const TOOLS = [{
     },
     {
       name: 'record_health',
-      description: 'Record grandma\'s meal and medicine status for this meal period (asa/hiru/yoru). Use after she answers the meal check-in or says she ate/took medicine.',
+      description: 'Record grandma\'s meal, medicine, physical condition and mood for this meal period (asa/hiru/yoru). Use after the check-in or whenever she mentions eating/medicine/how she feels.',
       parameters: {
         type: 'OBJECT',
         properties: {
           period: { type: 'STRING', enum: ['asa', 'hiru', 'yoru', 'other'] },
           ate: { type: 'STRING', enum: ['yes', 'no', 'little', 'unknown'] },
           medicine: { type: 'STRING', enum: ['yes', 'no', 'little', 'unknown'] },
-          note: { type: 'STRING', description: 'short memo, e.g. what she ate' },
+          condition: { type: 'STRING', enum: ['genki', 'tired', 'bad', 'unknown'], description: 'physical condition: genki=fine, tired, bad=unwell' },
+          mood: { type: 'STRING', enum: ['happy', 'calm', 'lonely', 'sad', 'worried', 'unknown'], description: 'her emotional state, from what she says or how she sounds' },
+          note: { type: 'STRING', description: 'short memo, e.g. what she ate or said' },
         },
       },
     },

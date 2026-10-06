@@ -124,6 +124,14 @@ done
    the target ID(s) in `LINE_TARGET_IDS` (group ID starts with `C`, user `U`).
 5. Redeploy or update env vars.
 
+### 5c. Family dashboard — /family
+
+`https://<URL>/family` is a read-only page for the family: current presence,
+today's meal/medicine/げんき/きぶん status, Hinata's memory summary, pending
+reminders and the recent event log. It auto-refreshes every 60 s.
+Set `FAMILY_TOKEN` to lock it behind `?key=<token>` (recommended before
+sharing the URL with the family).
+
 ## 6. Auto-deploy on git push (continuous deployment)
 
 After the first manual deploy, Cloud Run can rebuild + redeploy on every push

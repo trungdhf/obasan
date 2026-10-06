@@ -47,6 +47,9 @@ class MemoryStore {
     if (this.agentLog.length > 500) this.agentLog.shift();
     console.log(`[agent] ${event.type}: ${JSON.stringify(event)}`);
   }
+  async listLog(limit = 30) {
+    return this.agentLog.slice(-limit).reverse();
+  }
   async addFamilyMessage(m) {
     this.familyMessages.push({ ...m, at: Date.now() });
     if (this.familyMessages.length > 100) this.familyMessages.shift();
@@ -93,6 +96,10 @@ class FirestoreStore {
   async log(event) {
     console.log(`[agent] ${event.type}: ${JSON.stringify(event)}`);
     await this.db.collection('agent_log').add({ ...event, at: Date.now() });
+  }
+  async listLog(limit = 30) {
+    const snap = await this.db.collection('agent_log').orderBy('at', 'desc').limit(limit).get();
+    return snap.docs.map(d => d.data());
   }
   async addFamilyMessage(m) {
     await this.db.collection('family_messages').add({ ...m, at: Date.now() });
