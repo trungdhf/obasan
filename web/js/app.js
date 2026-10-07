@@ -345,9 +345,10 @@ function speakFallback(text) {
     try {
       speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'ja-JP'; u.rate = 1.0; u.pitch = 1.7;
-      const ja = speechSynthesis.getVoices().find(v => v.lang?.startsWith('ja'));
-      if (ja) u.voice = ja;
+      u.lang = CONFIG.lang === 'vi' ? 'vi-VN' : 'ja-JP'; u.rate = 1.0; u.pitch = 1.7;
+      const want = CONFIG.lang === 'vi' ? 'vi' : 'ja';
+      const v0 = speechSynthesis.getVoices().find(v => v.lang?.startsWith(want));
+      if (v0) u.voice = v0;
       speechSynthesis.speak(u);
     } catch { }
   }
@@ -425,6 +426,7 @@ async function _openLive() {
     const session = new LiveSession({
       token, model, vertex, location, project,
       voice: userVoice || serverCfg.liveVoice || 'Zephyr',
+      languageCode: CONFIG.lang === 'vi' ? 'vi-VN' : 'ja-JP',
       systemPrompt: prompt, tools: TOOLS,
       handlers: {
         onOpen: () => { log('Gemini Live 接続'); setLiveBadge(true); },

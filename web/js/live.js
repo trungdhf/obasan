@@ -62,13 +62,14 @@ registerProcessor('pcm-cap', PcmCap);`;
 export class LiveSession {
   // handlers: onOpen, onClose(reason), onError(err), onTranscript(text, turnComplete),
   //           onInputTranscript(text), onToolCall(call), onInterrupted
-  constructor({ token, model, voice, systemPrompt, tools, handlers, vertex, location, project }) {
+  constructor({ token, model, voice, systemPrompt, tools, handlers, vertex, location, project, languageCode }) {
     this.token = token;
     this.vertex = Boolean(vertex);
     this.location = location || 'us-central1';
     this.project = project || '';
     this.model = model;
     this.voice = voice;
+    this.languageCode = languageCode || 'ja-JP';
     this.systemPrompt = systemPrompt;
     this.tools = tools;
     this.h = handlers || {};
@@ -116,7 +117,7 @@ export class LiveSession {
         generationConfig: {
           responseModalities: ['AUDIO'],
           speechConfig: {
-            languageCode: 'ja-JP',
+            languageCode: this.languageCode,
             voiceConfig: { prebuiltVoiceConfig: { voiceName: this.voice } },
           },
         },
