@@ -42,6 +42,17 @@
     </svg>
     <div class="bubble" id="bubble" aria-live="polite">おばあちゃん、こんにちは！</div>
 
+    <div class="chips" id="chips" role="group" aria-label="ひなたにおねがい">
+      <button data-say="なぞなぞして"><span class="ic">🧩</span>なぞなぞ</button>
+      <button data-say="きょうのてんきは？"><span class="ic">🌤️</span>てんき</button>
+      <button data-say="たのしいおはなしして"><span class="ic">📖</span>おはなし</button>
+      <button data-say="いっしょにたいそうして"><span class="ic">🤸</span>たいそう</button>
+      <button data-say="のうとれであそぼう"><span class="ic">🧠</span>のうとれ</button>
+      <button data-say="うたをうたって"><span class="ic">🎵</span>うた</button>
+      <button data-say="ニュースおしえて"><span class="ic">📰</span>ニュース</button>
+      <button data-say="かぞくにれんらくして"><span class="ic">☎️</span>かぞく</button>
+    </div>
+
     <svg class="char" id="koharu" viewBox="0 0 400 400" role="img" aria-label="犬のこはる" style="display:none">
       <path class="tail" d="M300 300 C350 290 360 240 335 225 C325 250 310 265 290 275 Z" fill="var(--fur)" stroke="#4A3B32" stroke-width="5" stroke-linejoin="round"/>
       <g class="breathe">
@@ -231,20 +242,6 @@
       <div class="meter" aria-hidden="true"><span id="meter"></span></div>
       <p class="note" id="timerText"></p>
       <video id="cam" playsinline muted aria-hidden="true"></video>
-    </div>
-
-    <div class="group">
-      <h2>ひなたにおねがい</h2>
-      <div class="chips" id="chips">
-        <button data-say="なぞなぞして">なぞなぞ</button>
-        <button data-say="きょうのてんきは？">てんき</button>
-        <button data-say="たのしいおはなしして">たのしいはなし</button>
-        <button data-say="いっしょにたいそうして">たいそう</button>
-        <button data-say="のうとれであそぼう">のうとれ</button>
-        <button data-say="うたをうたって">うた</button>
-        <button data-say="ニュースおしえて">ニュース</button>
-        <button data-say="かぞくにれんらくして">かぞくにれんらく</button>
-      </div>
     </div>
 
     <div class="group">

@@ -109,8 +109,14 @@ details.group>summary::before{content:"▸ ";color:var(--ai)}
 details.group[open]>summary::before{content:"▾ "}
 details.group>summary::-webkit-details-marker{display:none}
 details.group>summary+*{margin-top:8px}
-.chips{display:flex;flex-wrap:wrap;gap:8px}
-.chips button{border-radius:999px;padding:10px 18px;background:var(--ai-soft);border-color:transparent}
+.chips{position:absolute;left:12px;top:52%;transform:translateY(-50%);z-index:6;
+  display:flex;flex-direction:column;gap:8px}
+.chips button{width:64px;min-height:58px;border-radius:16px;padding:6px 2px 4px;
+  background:rgba(255,252,246,.92);border:1px solid rgba(180,140,90,.28);
+  display:flex;flex-direction:column;align-items:center;gap:1px;
+  font-size:.62rem;font-weight:700;color:#7a5a3a;
+  box-shadow:0 2px 6px rgba(180,140,90,.16)}
+.chips button .ic{font-size:1.35rem;line-height:1.2}
 .chips button:active{background:var(--ai);color:var(--panel)}
 .voicelabel{font-size:.9rem;font-weight:700;color:var(--ink-soft);align-self:center}
 select{font:inherit;font-weight:700;color:var(--ink);background:var(--panel);border:1.5px solid var(--ai);border-radius:12px;padding:9px 12px;min-height:44px;max-width:190px}
