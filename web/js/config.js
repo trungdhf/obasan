@@ -7,6 +7,7 @@ export const CONFIG = {
   faceAbsentGraceMs: 1500,  // flicker tolerance before counting "away"
   char: 'photo',            // 'photo' (Hinata expressions) | 'hinata' | 'koharu'
   demo: false,              // forced true when backend reports no Gemini key
+  lang: 'ja',               // 'ja' | 'vi' — ?lang=vi runs the Vietnamese mode
 };
 
 export function loadConfig(serverCfg = {}) {
@@ -16,6 +17,7 @@ export function loadConfig(serverCfg = {}) {
   const q = new URLSearchParams(location.search);
   if (q.get('demo') === '1') CONFIG.demo = true;
   if (q.get('char')) CONFIG.char = q.get('char');
+  if (q.get('lang')) CONFIG.lang = q.get('lang') === 'vi' ? 'vi' : 'ja';
   if (q.get('idle')) CONFIG.idleToStandbySec = Number(q.get('idle')) || CONFIG.idleToStandbySec;
   return CONFIG;
 }

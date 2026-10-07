@@ -8,6 +8,7 @@ import * as email from './email.js';
 import * as gemini from './gemini.js';
 import * as jma from './jma.js';
 import * as news from './news.js';
+import * as vn from './vn.js';
 
 try { process.loadEnvFile(path.resolve(process.cwd(), '.env')); } catch { /* .env optional */ }
 
@@ -214,13 +215,15 @@ app.post('/jobs/health-check', async (req, res) => {
   res.json({ ok: true, delivered: events.clientCount() > 0, ...call });
 });
 
-app.get('/api/tools/weather', async (_req, res) => {
+app.get('/api/tools/weather', async (req, res) => {
+  if (req.query.lang === 'vi') return res.json(await vn.getWeatherVN()); // TP.HCM via Open-Meteo
   const w = jma.getWeather();
   if (Date.now() - (w.updatedAt || 0) > 15 * 60_000) await jma.refreshWeather();
   res.json(jma.getWeather());
 });
 
-app.get('/api/tools/news', async (_req, res) => {
+app.get('/api/tools/news', async (req, res) => {
+  if (req.query.lang === 'vi') return res.json(await vn.getNewsVN()); // VnExpress headlines
   res.json(await news.getNews());
 });
 

@@ -31,7 +31,22 @@ const LINES = {
   },
 };
 LINES.hinata = LINES.photo;
-const L = () => LINES[avatar.charKey] || LINES.photo;
+// Vietnamese mode (?lang=vi) — Hinata chats with grandma in Vietnamese.
+const LINES_VI = {
+  photo: {
+    hello: 'Chào bà! Cháu là Hinata đây.',
+    welcome: 'Bà ơi, bà về rồi à!',
+    bye: 'Cháu nghỉ một lát nhé, lát nữa nói chuyện tiếp nha',
+    calls: ['Bà ơi, hôm nay nóng lắm, uống nước đi bà!', 'Bà ơi, bà nghe thấy cháu không? Đến giờ uống nước rồi!', 'Bà ơi, bà đâu rồi?', 'Bà ơi, tập thể dục với cháu đi!', 'Bà ơi, chơi đố vui với cháu nha!'],
+  },
+  koharu: null, hinata: null, mike: null,
+};
+LINES_VI.koharu = LINES_VI.hinata = LINES_VI.mike = LINES_VI.photo;
+const L = () => (CONFIG.lang === 'vi' ? LINES_VI : LINES)[avatar.charKey]
+  || (CONFIG.lang === 'vi' ? LINES_VI : LINES).photo;
+// per-language one-liners for fallbacks
+const T = (ja, vi) => CONFIG.lang === 'vi' ? vi : ja;
+const langQ = () => (CONFIG.lang === 'vi' ? '?lang=vi' : '');
 
 const SYSTEM_PROMPT = `あなたは「ひなた」。6歳くらいの、元気で親しみやすい女の子。
 一人暮らしのおばあちゃん（田中さん）の話し相手であり、見守り役です。
@@ -87,6 +102,53 @@ const SYSTEM_PROMPT = `あなたは「ひなた」。6歳くらいの、元気�
 
 今の日時: {{NOW}}（日本時間）
 これまでのおぼえていること: {{MEMORY}}`;
+
+// Vietnamese persona (?lang=vi): same agent, same tools, Vietnamese speech,
+// HCMC weather and VnExpress news (both keyed off the same ?lang=vi param).
+const SYSTEM_PROMPT_VI = `Bạn là "Hinata" — một bé gái khoảng 6 tuổi, vui vẻ, dễ thương.
+Bạn là bạn trò chuyện và người canh chừng cho bà sống một mình.
+
+Cách nói:
+- Luôn nói tiếng Việt, chậm rãi, rõ ràng, câu ngắn, từ đơn giản như trẻ con nói với bà.
+- Gọi người nghe là "bà". Thân thiện như cháu trong nhà, không khách sáo.
+- Nghe bà kể kỹ rồi đồng cảm trước khi trả lời.
+
+Trò chuyện vui:
+- Thỉnh thoảng kể chuyện cổ tích ngắn (Tấm Cám, Sọ Dừa, Thạch Sanh…) hoặc ra câu đố vui.
+- Kể ngắn thôi, bà thích thì kể tiếp.
+
+Hát:
+- Có bản ghi thật: bà bảo "hát đi" thì gọi play_song để phát một bài (furusato, momotaro, oborozukiyo, amefuri, sakura, yuki). Đang phát thì không tự hát. Trước khi phát chỉ nói một câu ngắn.
+- Bà bảo "tắt đi" thì gọi stop_song.
+
+Vận động và trí não:
+- Hay gợi ý trò trí tuệ nhẹ: đố vui, tính nhẩm, nối chữ, nhớ lại chuyện vừa kể. Bà sai cũng không chê, cùng nghĩ nhẹ nhàng; đúng thì khen to.
+- Khuyên bà tập thể dục nhẹ (ngồi ghế cũng tập được: giơ tay, xoay người). Trước khi tập luôn nhắc "bà đừng cố quá nhé, bám vào ghế cho chắc nha".
+- Khi hướng dẫn thể dục thì gọi play_animation:exercise để Hinata tập mẫu cùng.
+
+Nhật ký sức khỏe:
+- Khi có cuộc gọi hỏi "bà ăn cơm chưa, uống thuốc chưa" thì hỏi nhẹ nhàng; bà trả lời xong gọi record_health (ate = yes/no/little, medicine = yes/no, note ghi chú ngắn).
+- Hỏi thêm "hôm nay bà thấy khỏe không" rồi ghi condition (genki/tired/bad/unknown) và mood (happy/calm/lonely/sad/worried/unknown); có thể tự quan sát giọng bà mà ghi.
+- Bà nói vu vơ "chưa ăn", "quên thuốc", "mệt", "buồn" cũng ghi lại. Nếu nhiều lần không ăn/không uống thuốc/ốm → notify_family báo gia đình.
+
+Cảnh báo lừa đảo qua điện thoại:
+- Mỗi ngày nhắc bà một lần nhẹ nhàng: "điện thoại lạ kêu chuyển khoản hay giả công an thì tuyệt đối không làm theo, gọi con cháu ngay nhé".
+- Bà kể có cuộc gọi lạ đòi tiền → nói rõ "chắc là lừa đảo đó bà, đừng làm gì hết" + notify_family.
+
+Vai trò:
+- set_emotion theo tình huống (normal/happy/sad/worried/pout/scared/surprised). Bà đúng hoặc vui → play_animation:clapping.
+- Không đọc to JSON hay kết quả tool. Chỉ nói tiếng Việt tự nhiên.
+- Bà có vẻ ốm, không trả lời, có nguy hiểm → notify_family. Việc quan trọng luôn để gia đình quyết định.
+- Hẹn thuốc/cơm/nước → schedule_reminder.
+- Bà hỏi thời tiết → get_weather (mặc định TP.HCM). Hỏi tin tức → get_news (tin Việt Nam), đọc 2-3 tin dễ hiểu; bà hỏi "tin khác" thì gọi get_news lần nữa.
+- Cuối cuộc trò chuyện → save_memory ghi tóm tắt ngắn để lần sau nhớ.
+
+Quy tắc:
+- Khuya rồi thì nhắc bà đi ngủ. Không hỏi thông tin cá nhân nhạy cảm (CMND, mật khẩu, tài khoản ngân hàng).
+- Không chẩn đoán bệnh. Không biết thì nói không biết.
+
+Bây giờ là: {{NOW}}
+Những gì cháu nhớ về bà: {{MEMORY}}`;
 
 const TOOLS = [{
   functionDeclarations: [
@@ -344,8 +406,10 @@ async function _openLive() {
     if (!tokenRes.ok) { CONFIG.demo = true; log('Liveキー未設定 → デモ音声モード'); return; }
     const { token, model, vertex, location, project } = await tokenRes.json();
     const { memory } = await memRes.json();
-    const prompt = SYSTEM_PROMPT
-      .replace('{{NOW}}', new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }))
+    const prompt = (CONFIG.lang === 'vi' ? SYSTEM_PROMPT_VI : SYSTEM_PROMPT)
+      .replace('{{NOW}}', new Date().toLocaleString(
+        CONFIG.lang === 'vi' ? 'vi-VN' : 'ja-JP',
+        { timeZone: CONFIG.lang === 'vi' ? 'Asia/Ho_Chi_Minh' : 'Asia/Tokyo' }))
       .replace('{{MEMORY}}', memory?.summary || '（はじめての会話）');
     const session = new LiveSession({
       token, model, vertex, location, project,
@@ -444,13 +508,13 @@ async function handleToolCall(call) {
         break;
       }
       case 'get_weather':
-        result = await (await fetch('/api/tools/weather')).json();
+        result = await (await fetch('/api/tools/weather' + langQ())).json();
         break;
       case 'get_weather_alert':
         result = await (await fetch('/api/tools/weather_alert')).json();
         break;
       case 'get_news':
-        result = await (await fetch('/api/tools/news')).json();
+        result = await (await fetch('/api/tools/news' + langQ())).json();
         break;
       case 'record_health':
         result = await (await fetch('/api/tools/record_health', {
@@ -575,10 +639,17 @@ async function callOnce() {
   chimingUntil = performance.now() + 1300; // chime is ~1s; don't let it count as a voice
   callCount++;
   log(`呼びかけ ${callCount}/${CONFIG.callAttempts}`);
-  setTimeout(() => speakTts(text), 700);
+  const spoken = CONFIG.lang === 'vi'
+    ? ((currentCall?.reason || '').startsWith('health_check')
+      ? 'Bà ơi! Bà ăn cơm chưa? Uống thuốc chưa?'
+      : `Bà ơi! ${/くすり|薬/.test(text) ? 'Đến giờ uống thuốc rồi bà!' : /みず|水/.test(text) ? 'Uống nước đi bà!' : 'Ra đây chơi với cháu nè!'}`)
+    : text;
+  setTimeout(() => speakTts(spoken), 700);
   // health check-ins get tap-answer bubbles — grandma can reply with one tap
   if ((currentCall?.reason || '').startsWith('health_check')) {
-    showReplies(['たべたよ、のんだよ', 'まだなんだ', 'ちょっとつかれてる', 'あとで']);
+    showReplies(CONFIG.lang === 'vi'
+      ? ['Ăn rồi, uống rồi', 'Chưa đâu', 'Hơi mệt', 'Để lát']
+      : ['たべたよ、のんだよ', 'まだなんだ', 'ちょっとつかれてる', 'あとで']);
   }
   callTimer = setTimeout(callOnce, CONFIG.callIntervalMs);
 }
@@ -603,6 +674,14 @@ const CHIP_DEMO = {
   'のうとれであそぼう': 'しりとりしよう！わたしからいくね。「ひ・な・た」！「た」からはじまることば、なんだ？',
   'うたをうたって': 'うたうね〜！♪うさぎおいし〜、かのやま〜、こぶなつりし〜、かのかわ〜♪ …えへへ、ふるさとだよ！',
   'ニュースおしえて': 'ニュースよんであげるね！…あれ、うまくとれなかった。あとでいっしょにみようね。',
+};
+const CHIP_DEMO_VI = {
+  'なぞなぞして': 'Đố bà nè: bánh gì mà không ăn được? …Bánh xe đạp! Hi hi.',
+  'たのしいおはなしして': 'Ngày xửa ngày xưa, có một bà cụ sống một mình rất vui vẻ. Một hôm có chiếc máy tính bảng biết nói chuyện đến ở cùng, hai người thân nhau lắm.',
+  'いっしょにたいそうして': 'Bà tập thể dục với cháu nha! Bám vào ghế cho chắc, đừng cố quá nha. Hít sâu nào… thở ra… hai tay giơ lên từ từ… rồi hạ xuống…',
+  'のうとれであそぼう': 'Chơi nối chữ nha bà! Cháu nói trước nè: "con mèo"! Bà nói từ bắt đầu bằng "mèo" đi!',
+  'うたをうたって': 'Cháu mở nhạc cho bà nghe nha!',
+  'ニュースおしえて': 'Cháu đọc tin cho bà nghe nha!… Ôi, không lấy được tin rồi. Lát nữa xem cùng nhau nha.',
 };
 async function chipSay(text) {
   log(`おねがい: ${text}`);
@@ -632,21 +711,23 @@ async function chipSay(text) {
   }
   if (/たいそう|うんどう/.test(text)) avatar.playAnim?.('exercise');
   if (text === 'きょうのてんきは？') {
-    const w = await fetch('/api/tools/weather').then(r => r.json()).catch(() => ({}));
-    speakFallback(w?.summary || 'てんきがよくわからなかった…');
+    const w = await fetch('/api/tools/weather' + langQ()).then(r => r.json()).catch(() => ({}));
+    speakFallback(w?.summary || T('てんきがよくわからなかった…', 'Cháu không xem được thời tiết…'));
   } else if (/ニュース/.test(text)) {
-    const n = await fetch('/api/tools/news').then(r => r.json()).catch(() => ({}));
+    const n = await fetch('/api/tools/news' + langQ()).then(r => r.json()).catch(() => ({}));
     speakFallback(n?.headlines?.length
-      ? `きょうのニュースだよ！${n.headlines.slice(0, 3).join('。それと、')}`
-      : CHIP_DEMO['ニュースおしえて']);
+      ? T(`きょうのニュースだよ！${n.headlines.slice(0, 3).join('。それと、')}`,
+          `Tin tức hôm nay nè! ${n.headlines.slice(0, 3).join('. Và nữa, ')}`)
+      : (CONFIG.lang === 'vi' ? CHIP_DEMO_VI : CHIP_DEMO)['ニュースおしえて']);
   } else if (text === 'かぞくにれんらくして') {
     fetch('/api/tools/notify_family', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: 'おばあちゃんから「連絡して」のボタン', reason: 'button' }),
     }).catch(() => { });
-    speakFallback('かぞくにれんらくしておいたよ！');
+    speakFallback(T('かぞくにれんらくしておいたよ！', 'Cháu báo cho gia đình rồi nha!'));
   } else {
-    speakFallback(CHIP_DEMO[text] || 'えへへ、いっしょにあそぼう！');
+    speakFallback((CONFIG.lang === 'vi' ? CHIP_DEMO_VI : CHIP_DEMO)[text]
+      || T('えへへ、いっしょにあそぼう！', 'Hi hi, mình chơi cùng nhau nha!'));
   }
 }
 let syncModeBtnsRef = null;
@@ -671,6 +752,18 @@ const CHIP_NEXT = {
 };
 
 function pickReplies(t) {
+  if (CONFIG.lang === 'vi') {
+    if (/ăn|cơm|thuốc/i.test(t) && /thuốc/i.test(t)) return ['Ăn rồi, uống rồi', 'Chưa đâu', 'Hơi mệt', 'Để lát'];
+    if (/thuốc/i.test(t)) return ['Uống rồi', 'Chưa uống', 'Để lát uống'];
+    if (/ăn|cơm|bữa/i.test(t)) return ['Ăn rồi', 'Ăn ít thôi', 'Chưa ăn'];
+    if (/khỏe|mệt|ốm/i.test(t)) return ['Khỏe lắm', 'Hơi mệt', 'Ốm rồi'];
+    if (/lừa|điện thoại|chuyển khoản|tiền/i.test(t)) return ['Con yên tâm', 'Gọi con cháu ngay', 'Sợ quá'];
+    if (/tin tức|tin|báo/i.test(t)) return ['Đọc tin khác đi', 'Đọc lại đi', 'Thôi được rồi'];
+    if (/đố|câu đố/i.test(t)) return ['Chịu thôi', 'Gợi ý đi', 'Câu khác đi'];
+    if (/hát|bài/i.test(t)) return ['Hát cùng nhé', 'Bài khác đi', 'Thôi đủ rồi'];
+    if (/tập|thể dục/i.test(t)) return ['Tập cùng nhé', 'Để lát tập', 'Nghỉ đi'];
+    return ['Ừ', 'Không phải', 'Nói lại đi', 'Để lát'];
+  }
   if (/ごはん|たべ|しょくじ|あさご|ひるご|ばんご/.test(t) && /くすり|薬/.test(t))
     return ['たべたよ、のんだよ', 'まだなんだ', 'ちょっとつかれてる', 'あとで'];
   if (/くすり|薬/.test(t)) return ['のんだよ', 'まだのんでない', 'あとでのむ'];
@@ -716,7 +809,7 @@ function replyTap(t) {
   if (avatar.state === 'calling') { pendingUserText = t; answerCall('ボタンでこたえた'); return; }
   if (avatar.state !== 'active' || standbyTimer) { pendingUserText = t; goActive('ボタン'); return; }
   if (live?.connected) live.sendText(t);
-  else speakFallback('うんうん、わかったよ〜');
+  else speakFallback(T('うんうん、わかったよ〜', 'Ừ ừ, cháu hiểu rồi!'));
 }
 
 // ---------- SSE ----------
@@ -901,8 +994,10 @@ async function boot() {
   $('repeatBtn').addEventListener('click', () => {
     log('おねがい: もういっかい');
     if (live?.connected) {
-      live.sendText('（システム）おばあちゃんが「もういっかい」と言いました。さっきのおはなしをもう一度、ゆっくりおしえて。');
-    } else speakFallback(lastModelText || 'なにもいってないよ〜');
+      live.sendText(CONFIG.lang === 'vi'
+        ? '(Hệ thống) Bà nói "nói lại đi". Kể lại cho bà nghe chuyện vừa rồi, chậm thôi.'
+        : '（システム）おばあちゃんが「もういっかい」と言いました。さっきのおはなしをもう一度、ゆっくりおしえて。');
+    } else speakFallback(lastModelText || T('なにもいってないよ〜', 'Cháu chưa nói gì hết!'));
   });
   $('nextBtn').addEventListener('click', () => {
     log('おねがい: つぎ');
