@@ -38,6 +38,19 @@ const MOOD_EXPR = {
 };
 const EXPR_KEYS = ['happy', 'angry', 'sad', 'relaxed', 'surprised'];
 
+// みんなの体操 (NHK's seated senior routine) — each move loops on a slow
+// rep cycle; rZ/lZ are deltas added to the rest arm rotations (negative
+// raises the right arm, positive raises the left). ~80 s total.
+const EXERCISE_MOVES = [
+  { key: 'breath',  label: '① しんこきゅう — うでをあげて', secs: 10 },
+  { key: 'chest',   label: '② むねをはって',               secs: 10 },
+  { key: 'lean',    label: '③ よこにかたむく',             secs: 14 },
+  { key: 'twist',   label: '④ からだをひねる',             secs: 14 },
+  { key: 'arms',    label: '⑤ うでをまわす',               secs: 12 },
+  { key: 'stretch', label: '⑥ おおきくのび',               secs: 10 },
+  { key: 'breath',  label: '⑦ しんこきゅう — おわり',       secs: 10 },
+];
+
 class VrmAvatar {
   constructor({ stage, bubble, statusText, dot }) {
     this.stage = stage; this.bubble = bubble;
@@ -93,6 +106,9 @@ class VrmAvatar {
     this.armBone = vrm.humanoid?.getNormalizedBoneNode('rightUpperArm');
     this.leftArmBone = vrm.humanoid?.getNormalizedBoneNode('leftUpperArm');
     this.forearmBone = vrm.humanoid?.getNormalizedBoneNode('rightLowerArm');
+    this.leftForearmBone = vrm.humanoid?.getNormalizedBoneNode('leftLowerArm');
+    this.chestBone = vrm.humanoid?.getNormalizedBoneNode('chest')
+      || vrm.humanoid?.getNormalizedBoneNode('spine');
     // natural rest pose: arms hang down instead of the model's T-pose
     this._restR = 1.45; this._restL = -1.45;
     if (this.armBone) this.armBone.rotation.z = this._restR;
@@ -176,10 +192,57 @@ class VrmAvatar {
     this._waveUntil = performance.now() + ms;
   }
   celebrate() { this.playAnim('clapping'); }
-  // looping arm-raise / stretch demo so grandma can follow along —
-  // procedural because we don't have a taisou .vrma clip
-  exercise(on = true, ms = 40000) {
+  // みんなの体操 routine — procedural move sequence so grandma can
+  // follow along (no taisou .vrma clip needed)
+  exercise(on = true, ms = 80000) {
     this._exerciseUntil = on ? performance.now() + ms : 0;
+    this._exStart = performance.now();
+    if (!this._exLabel) {
+      this._exLabel = document.createElement('div');
+      this._exLabel.className = 'exlabel';
+      this.stage.appendChild(this._exLabel);
+    }
+  }
+
+  // Bone targets for the current move (deltas on top of the rest pose).
+  _exercisePose(now, t) {
+    let el = (now - this._exStart) / 1000, move = EXERCISE_MOVES[0];
+    for (const m of EXERCISE_MOVES) { if (el < m.secs) { move = m; break; } el -= m.secs; }
+    if (this._exMove !== move && this._exLabel) {
+      this._exMove = move;
+      this._exLabel.textContent = move.label;
+    }
+    const s4 = 0.5 + 0.5 * Math.sin(t * Math.PI / 2);          // 4 s rep
+    const s3 = 0.5 + 0.5 * Math.sin(t * Math.PI * 2 / 3);      // 3 s rep
+    const p = { rZ: 0, lZ: 0, rF: 0, lF: 0, rY: 0, lY: 0, spZ: 0, spY: 0, headX: 0, headY: 0 };
+    switch (move.key) {
+      case 'breath':   // 深呼吸 — arms rise overhead, lower
+        p.rZ = -1.55 * s4; p.lZ = 1.55 * s4; p.headX = -0.1 * s4; break;
+      case 'chest':    // 胸をはる — arms half-out, elbows pull back
+        p.rZ = -0.55 - 0.45 * s3; p.lZ = 0.55 + 0.45 * s3;
+        p.rF = -0.4 * s3; p.lF = 0.4 * s3; break;
+      case 'lean': {   // 横にかたむく — alternate side every 5 s, opposite arm over head
+        const side = Math.floor(t / 5) % 2 ? -1 : 1;
+        const bend = Math.sin(((t % 5) / 5) * Math.PI);
+        p.spZ = side * bend * 0.22;
+        if (side > 0) { p.rZ = -1.7 * bend; p.lZ = 0.5 * bend; }
+        else          { p.lZ = 1.7 * bend;  p.rZ = -0.5 * bend; }
+        break;
+      }
+      case 'twist':    // ひねる — forearms folded in front, torso twists L/R
+        p.rZ = -0.95; p.lZ = 0.95; p.rF = -1.35; p.lF = 1.35;
+        p.spY = Math.sin(t * Math.PI / 2) * 0.3;
+        p.headY = p.spY * 0.5; break;
+      case 'arms':     // うでまわし — arms out, swing fwd/back like circles
+        p.rZ = -1.3; p.lZ = 1.3;
+        p.rY = Math.sin(t * Math.PI) * 0.55; p.lY = -Math.sin(t * Math.PI) * 0.55;
+        break;
+      case 'stretch':  // のび — both arms high, gentle sway, head up
+        p.rZ = -1.7 + 0.07 * Math.sin(t * 3);
+        p.lZ = 1.7 - 0.07 * Math.sin(t * 3);
+        p.headX = -0.14; break;
+    }
+    return p;
   }
   playAnim(name) {
     if (name === 'exercise') { this.mixer.stopAllAction(); this.exercise(true); return; }
@@ -266,33 +329,45 @@ class VrmAvatar {
     this.mixer?.update(dt);
     const animBusy = Boolean(this._animAction);
     const waving = !animBusy && now < this._waveUntil; // bone fallback only
-    // exercise demo: both arms rise together overhead and lower on a slow
-    // 3-second cycle (sinusoid 0→1→0), plus a gentle nod — grandma mirrors it
+    // exercise routine: run the みんなの体操 move sequence
     const exercising = !animBusy && !standby && now < this._exerciseUntil;
-    const lift = exercising ? 0.5 + 0.5 * Math.sin(t * (Math.PI * 2 / 3)) : 0;
+    const ex = exercising ? this._exercisePose(now, t) : null;
+    if (this._exLabel) this._exLabel.style.display = exercising ? '' : 'none';
     if (this.armBone && !animBusy) {
       // hello wave: upper arm out to the side + slight forward swing;
       // calling wave or rest at the side otherwise
-      const targetZ = exercising ? this._restR - lift * 1.5
+      const targetZ = ex ? this._restR + ex.rZ
         : waving ? -1.55 + Math.sin(t * 3) * 0.05
         : this.state === 'calling' ? -1.1 + Math.sin(t * 5) * 0.35
         : this._restR;
-      this.armBone.rotation.z += (targetZ - this.armBone.rotation.z) * Math.min(1, dt * (exercising ? 8 : waving ? 10 : 5));
-      const targetY = waving ? Math.sin(t * 8) * 0.2 : 0;
+      this.armBone.rotation.z += (targetZ - this.armBone.rotation.z) * Math.min(1, dt * (ex ? 8 : waving ? 10 : 5));
+      const targetY = ex ? ex.rY : waving ? Math.sin(t * 8) * 0.2 : 0;
       this.armBone.rotation.y += (targetY - this.armBone.rotation.y) * Math.min(1, dt * 10);
     }
     if (this.forearmBone && !animBusy) {
       // elbow bent ~90° so the forearm stands up beside the head;
       // the hand rocks side to side like the reference wave gif
-      const targetZ = waving ? -2.1 + Math.sin(t * 8) * 0.3 : 0;
+      const targetZ = ex ? ex.rF : waving ? -2.1 + Math.sin(t * 8) * 0.3 : 0;
       this.forearmBone.rotation.z += (targetZ - this.forearmBone.rotation.z) * Math.min(1, dt * 10);
     }
     if (this.leftArmBone && !animBusy) {
-      const targetZ = exercising ? this._restL + lift * 1.5 : this._restL;
-      this.leftArmBone.rotation.z += (targetZ - this.leftArmBone.rotation.z) * Math.min(1, dt * (exercising ? 8 : 5));
+      const targetZ = ex ? this._restL + ex.lZ : this._restL;
+      this.leftArmBone.rotation.z += (targetZ - this.leftArmBone.rotation.z) * Math.min(1, dt * (ex ? 8 : 5));
+      const targetY = ex ? ex.lY : 0;
+      this.leftArmBone.rotation.y += (targetY - this.leftArmBone.rotation.y) * Math.min(1, dt * 10);
     }
-    if (exercising && this.headBone) {
-      this.headBone.rotation.x += lift * 0.06; // nod along with the reps
+    if (this.leftForearmBone && !animBusy) {
+      const targetZ = ex ? ex.lF : 0;
+      this.leftForearmBone.rotation.z += (targetZ - this.leftForearmBone.rotation.z) * Math.min(1, dt * 10);
+    }
+    if (this.chestBone && !animBusy) {
+      const tZ = ex ? ex.spZ : 0, tY = ex ? ex.spY : 0;
+      this.chestBone.rotation.z += (tZ - this.chestBone.rotation.z) * Math.min(1, dt * 6);
+      this.chestBone.rotation.y += (tY - this.chestBone.rotation.y) * Math.min(1, dt * 6);
+    }
+    if (ex && this.headBone) {
+      this.headBone.rotation.x += ex.headX;
+      this.headBone.rotation.y += ex.headY;
     }
     // look-at wander toward the camera area
     this._look.x = Math.sin(t * 0.4) * 0.12;
