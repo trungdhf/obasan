@@ -293,9 +293,9 @@ const SONGS = {
   sakura:      { title: 'さくら',     lyrics: '♪ さくら さくら やよいのそらは みわたすかぎり かすみかくもか いざや いざや みにゆかん' },
   yuki:        { title: 'ゆき',       lyrics: '♪ ゆきやこんこ あられやこんこ ふってはふっては ずんずんつもる' },
 };
-let songEl = null, songNode = null;
+let songEl = null, songNode = null, songKey = null;
 function stopSong() {
-  if (songEl) { try { songEl.pause(); songEl.src = ''; } catch { } songEl = null; }
+  if (songEl) { try { songEl.pause(); songEl.src = ''; } catch { } songEl = null; songKey = null; }
   if (songNode) { try { songNode.disconnect(); } catch { } songNode = null; }
   ttsPlaying = Math.max(0, ttsPlaying - (stopSong._playing ? 1 : 0));
   stopSong._playing = false;
@@ -313,6 +313,7 @@ async function playSong(key) {
   if (ttsCtx.state === 'suspended') { try { await ttsCtx.resume(); } catch { } }
   stopSpeech(); // don't let a TTS line talk over the music
   const file = SONGS[key] ? key : 'furusato';
+  songKey = file;
   songEl = new Audio(`/audio/songs/${file}.mp3`);
   songNode = ttsCtx.createMediaElementSource(songEl);
   songNode.connect(ttsAnalyser);
@@ -368,7 +369,11 @@ async function _openLive() {
           const parts = shown.split(/(?<=[。！？!?？\n])/);
           if (parts.length > 2) shown = parts.slice(-2).join('').trim();
           if (shown) { avatar.bubble.textContent = shown; avatar.bubble.classList.remove('hidden'); }
-          if (done) transcriptBuf = '';
+          if (done) {
+            lastModelText = transcriptBuf.replace(/\{[^{}]*\}/g, '').trim();
+            transcriptBuf = '';
+            updateReplies();
+          }
         },
         onToolCall: handleToolCall,
         onError: (e) => { console.warn('[live]', e); log(`Live エラー: ${e.message || e}`); },
@@ -493,6 +498,7 @@ function earLevel() {
 function goActive(reason) {
   clearTimeout(callTimer); callCount = 0; currentCall = null;
   clearTimeout(standbyTimer); standbyTimer = null; // cancel a farewell in progress
+  hideReplies();
   avatar.setState('active');
   lastFace = performance.now();
   avatar.setMood('happy');
@@ -503,8 +509,13 @@ function goActive(reason) {
   } else {
     openLive().then(() => {
       if (avatar.state !== 'active') return; // she left while Live was connecting
-      if (live?.connected) live.sendText('（システム）おばあちゃんが戻ってきました。短くあいさつして。');
-      else speakFallback(L().welcome);
+      if (live?.connected) {
+        live.sendText('（システム）おばあちゃんが戻ってきました。短くあいさつして。');
+        if (pendingUserText) {
+          const m = pendingUserText; pendingUserText = null;
+          setTimeout(() => live?.sendText(m), 1800);
+        }
+      } else speakFallback(L().welcome);
     });
   }
   log(`おばあちゃん検出（${reason}）。Liveセッション再開。`);
@@ -516,6 +527,7 @@ function goStandby(reason) {
   const bye = L().bye;
   // Fixed farewell via TTS, not the Live model — it kept improvising a long
   // repetitive monologue. Closing the socket right away also stops billing.
+  hideReplies();
   stopSong();
   if (live?.connected) { closeLive(); setLiveBadge(false); }
   stopSpeech(); // stop anything else talking before the farewell
@@ -564,6 +576,10 @@ async function callOnce() {
   callCount++;
   log(`呼びかけ ${callCount}/${CONFIG.callAttempts}`);
   setTimeout(() => speakTts(text), 700);
+  // health check-ins get tap-answer bubbles — grandma can reply with one tap
+  if ((currentCall?.reason || '').startsWith('health_check')) {
+    showReplies(['たべたよ、のんだよ', 'まだなんだ', 'ちょっとつかれてる', 'あとで']);
+  }
   callTimer = setTimeout(callOnce, CONFIG.callIntervalMs);
 }
 
@@ -606,11 +622,19 @@ async function chipSay(text) {
     playSong(keys[Math.floor(Math.random() * keys.length)]);
     return;
   }
+  if (CHIP_NEXT[text]) lastTopic = text;
   if (live?.connected) { live.sendText(text); return; }
+  if (text === 'ほかのうたかけて') {
+    const keys = Object.keys(SONGS).filter(k => k !== songKey);
+    if (songEl) stopSong();
+    playSong(keys[Math.floor(Math.random() * keys.length)]);
+    return;
+  }
+  if (/たいそう|うんどう/.test(text)) avatar.playAnim?.('exercise');
   if (text === 'きょうのてんきは？') {
     const w = await fetch('/api/tools/weather').then(r => r.json()).catch(() => ({}));
     speakFallback(w?.summary || 'てんきがよくわからなかった…');
-  } else if (text === 'ニュースおしえて') {
+  } else if (/ニュース/.test(text)) {
     const n = await fetch('/api/tools/news').then(r => r.json()).catch(() => ({}));
     speakFallback(n?.headlines?.length
       ? `きょうのニュースだよ！${n.headlines.slice(0, 3).join('。それと、')}`
@@ -626,6 +650,74 @@ async function chipSay(text) {
   }
 }
 let syncModeBtnsRef = null;
+
+// ---------- tap-answer bubbles + repeat/next buttons ----------
+// When Hinata asks something, contextual reply pills appear so grandma can
+// answer with one tap instead of speaking.
+let lastModelText = '';   // last full model turn (for question detection + 🔁)
+let pendingUserText = null; // a tapped reply while waking — sent once Live opens
+let lastTopic = null;     // last chip pressed, for the ⏭️ button
+let replyTimer = null;
+
+// canonical chip → its "next" follow-up (⏭️ keeps working on repeat taps)
+const CHIP_NEXT = {
+  'なぞなぞして': 'つぎのなぞなぞして',
+  'きょうのてんきは？': 'あしたのてんきは？',
+  'たのしいおはなしして': 'ほかのおはなしして',
+  'いっしょにたいそうして': 'つぎのうんどうして',
+  'のうとれであそぼう': 'つぎののうとれして',
+  'うたをうたって': 'ほかのうたかけて',
+  'ニュースおしえて': 'ほかのニュースは？',
+};
+
+function pickReplies(t) {
+  if (/ごはん|たべ|しょくじ|あさご|ひるご|ばんご/.test(t) && /くすり|薬/.test(t))
+    return ['たべたよ、のんだよ', 'まだなんだ', 'ちょっとつかれてる', 'あとで'];
+  if (/くすり|薬/.test(t)) return ['のんだよ', 'まだのんでない', 'あとでのむ'];
+  if (/ごはん|たべ|しょくじ|あさご|ひるご|ばんご/.test(t)) return ['たべたよ', 'すこしだけ', 'まだたべてない'];
+  if (/げんき|ぐあい|ちょうし|だいじょうぶ/.test(t)) return ['げんきだよ', 'ちょっとつかれてる', 'ぐあいわるい'];
+  if (/さぎ|でんわ|お金|ふりこ|ATM/.test(t)) return ['ふりこまないよ', 'かぞくに電話する', 'こわかった'];
+  if (/ニュース/.test(t)) return ['ほかのニュースおしえて', 'もういっかいおしえて', 'おしまい'];
+  if (/なぞなぞ|クイズ|な〜んだ|なーんだ/.test(t)) return ['わからない', 'ヒントほしい', 'つぎのして'];
+  if (/うた|歌/.test(t)) return ['いっしょにうたう', 'ほかのうたかけて', 'うたはおしまい'];
+  if (/たいそう|体操|うんどう/.test(t)) return ['いっしょにやるよ', 'あとでやる', 'たいそうおわり'];
+  return ['うん', 'ちがうよ', 'もういっかいおしえて', 'あとで'];
+}
+
+function showReplies(list) {
+  const bar = document.getElementById('replybar');
+  if (!bar) return;
+  bar.innerHTML = '';
+  list.forEach(t => {
+    const b = document.createElement('button');
+    b.textContent = t;
+    b.onclick = () => replyTap(t);
+    bar.appendChild(b);
+  });
+  bar.hidden = false;
+  clearTimeout(replyTimer);
+  replyTimer = setTimeout(() => { bar.hidden = true; }, 45000);
+}
+function hideReplies() {
+  const bar = document.getElementById('replybar');
+  if (bar) bar.hidden = true;
+}
+function updateReplies() {
+  const t = lastModelText;
+  // show options when the turn was a question (？, かな, ましょ, でしょ…)
+  if (avatar.state === 'active' && (/[？?]/.test(t) || /かな[。〜ー]?$|でしょ|ましょ|ね$/.test(t))) {
+    showReplies(pickReplies(t));
+  } else hideReplies();
+}
+
+function replyTap(t) {
+  hideReplies();
+  log(`おばあちゃん: ${t}`);
+  if (avatar.state === 'calling') { pendingUserText = t; answerCall('ボタンでこたえた'); return; }
+  if (avatar.state !== 'active' || standbyTimer) { pendingUserText = t; goActive('ボタン'); return; }
+  if (live?.connected) live.sendText(t);
+  else speakFallback('うんうん、わかったよ〜');
+}
 
 // ---------- SSE ----------
 function startEvents() {
@@ -738,7 +830,7 @@ async function boot() {
   }
   avatar.setState('active');
   setLiveBadge(false);
-  window.hinata = { avatar };   // console debug handle
+  window.hinata = { avatar, showReplies };   // console debug handle
 
   presence = new Presence({
     video: $('cam'),
@@ -800,8 +892,18 @@ async function boot() {
     log(`こえ変更: ${userVoice || 'きてい'}`);
     if (live?.connected) { closeLive(); openLive(); } // apply now
   });
-  document.querySelectorAll('#chips button').forEach(b =>
+  document.querySelectorAll('#chips button[data-say]').forEach(b =>
     b.addEventListener('click', () => chipSay(b.dataset.say)));
+  $('repeatBtn').addEventListener('click', () => {
+    log('おねがい: もういっかい');
+    if (live?.connected) {
+      live.sendText('（システム）おばあちゃんが「もういっかい」と言いました。さっきのおはなしをもう一度、ゆっくりおしえて。');
+    } else speakFallback(lastModelText || 'なにもいってないよ〜');
+  });
+  $('nextBtn').addEventListener('click', () => {
+    log('おねがい: つぎ');
+    chipSay(lastTopic ? CHIP_NEXT[lastTopic] : 'なにかつぎをして');
+  });
 
   startEvents();
   requestAnimationFrame(frame);
