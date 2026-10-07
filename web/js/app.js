@@ -86,6 +86,7 @@ const SYSTEM_PROMPT = `あなたは「ひなた」。6歳くらいの、元気�
 - おばあちゃんが「おかしな電話があった」「お金を振り込んでと言われた」と言ったら、すぐ「それはさぎかも！何もしないで」とはっきり言い、notify_family で家族に知らせる。
 
 役割:
+- おばあちゃんに質問するときは、いっしょに show_reply_options を呼んで、質問にぴったり合う回答ボタン（2〜4個、短いひらがな言葉）を画面に出す。例:「ごはんたべた？」→「たべたよ」「まだ」「あとで」。「げんき？」→「げんきだよ」「ちょっとつかれてる」。
 - 気分に合わせて set_emotion を呼ぶ（normal/happy/sad/worried/pout/scared/surprised）。
 - おばあちゃんが正解した・喜んだ → play_animation:clapping で拍手して大喜びする（正解したら必ず）。驚いたら surprised、考え込む間は thinking、元気なとき jump。
 - ツール呼び出しやその結果、JSONは絶対に声に出さない。しゃべるのは自然な日本語だけ。
@@ -136,6 +137,7 @@ Cảnh báo lừa đảo qua điện thoại:
 - Bà kể có cuộc gọi lạ đòi tiền → nói rõ "chắc là lừa đảo đó bà, đừng làm gì hết" + notify_family.
 
 Vai trò:
+- Khi hỏi bà một câu, gọi luôn show_reply_options để hiện 2-4 nút trả lời khớp đúng câu hỏi. Ví dụ hỏi "bà ăn cơm chưa" → ["Ăn rồi","Chưa ăn","Để lát"]; hỏi "bà khỏe không" → ["Khỏe lắm","Hơi mệt","Ốm rồi"].
 - set_emotion theo tình huống (normal/happy/sad/worried/pout/scared/surprised). Bà đúng hoặc vui → play_animation:clapping.
 - Không đọc to JSON hay kết quả tool. Chỉ nói tiếng Việt tự nhiên.
 - Bà có vẻ ốm, không trả lời, có nguy hiểm → notify_family. Việc quan trọng luôn để gia đình quyết định.
@@ -239,6 +241,15 @@ const TOOLS = [{
         type: 'OBJECT',
         properties: { summary: { type: 'STRING' } },
         required: ['summary'],
+      },
+    },
+    {
+      name: 'show_reply_options',
+      description: 'Show big tappable answer buttons on the tablet screen for grandma. Call this whenever you ask her a question that has a few likely answers — the options must match exactly what you just asked (e.g. asking about dinner → 「たべたよ」「まだ」「あとで」).',
+      parameters: {
+        type: 'OBJECT',
+        properties: { options: { type: 'ARRAY', items: { type: 'STRING' }, description: '2-4 short answer choices, a few words each, easy hiragana' } },
+        required: ['options'],
       },
     },
   ],
@@ -528,6 +539,12 @@ async function handleToolCall(call) {
           body: JSON.stringify({ summary: args.summary }),
         });
         break;
+      case 'show_reply_options':
+        if (Array.isArray(args.options) && args.options.length) {
+          toolReplies = args.options.map(String).slice(0, 4);
+          showReplies(toolReplies);
+        }
+        break;
       default:
         result = { ok: false, error: `unknown tool ${name}` };
     }
@@ -739,6 +756,7 @@ let lastModelText = '';   // last full model turn (for question detection + 🔁
 let pendingUserText = null; // a tapped reply while waking — sent once Live opens
 let lastTopic = null;     // last chip pressed, for the ⏭️ button
 let replyTimer = null;
+let toolReplies = null;   // reply options the model chose via show_reply_options
 
 // canonical chip → its "next" follow-up (⏭️ keeps working on repeat taps)
 const CHIP_NEXT = {
@@ -797,6 +815,9 @@ function hideReplies() {
 }
 function updateReplies() {
   const t = lastModelText;
+  // Model-chosen options (show_reply_options) always match what it asked —
+  // they win over the keyword guess below.
+  if (toolReplies) { const r = toolReplies; toolReplies = null; if (avatar.state === 'active') { showReplies(r); return; } }
   // show options when the turn was a question (？, かな, ましょ, でしょ…)
   if (avatar.state === 'active' && (/[？?]/.test(t) || /かな[。〜ー]?$|でしょ|ましょ|ね$/.test(t))) {
     showReplies(pickReplies(t));
