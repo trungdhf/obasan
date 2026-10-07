@@ -121,6 +121,7 @@ details.group>summary+*{margin-top:8px}
 .chips button .ic{font-size:1.35rem;line-height:1.2}
 .chips button:active{background:var(--ai);color:var(--panel)}
 .chips.right{left:auto;right:12px}
+.chips.bottom{top:auto;bottom:12px;left:12px;transform:none;flex-direction:row}
 .chips select{width:64px;min-height:44px;border-radius:14px;padding:4px 2px;font-size:.6rem;
   font-weight:700;background:rgba(255,252,246,.92);border:1px solid rgba(180,140,90,.28);
   color:#7a5a3a;box-shadow:0 2px 6px rgba(180,140,90,.16)}
