@@ -126,8 +126,8 @@ details.group>summary+*{margin-top:8px}
   font-weight:700;background:rgba(255,252,246,.92);border:1px solid rgba(180,140,90,.28);
   color:#7a5a3a;box-shadow:0 2px 6px rgba(180,140,90,.16)}
 .chips button.off{background:var(--warn);border-color:var(--warn);color:#fff}
-.replybar{position:absolute;bottom:70px;left:50%;transform:translateX(-50%);z-index:7;
-  display:flex;gap:10px;flex-wrap:wrap;justify-content:center;max-width:92%}
+.replybar{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:7;
+  display:flex;gap:10px;flex-wrap:wrap;justify-content:center;max-width:64%}
 .replybar[hidden]{display:none}
 .replybar button{border-radius:999px;padding:12px 22px;font-size:1.05rem;font-weight:700;
   background:#FFF7E8;border:2px solid var(--ai);color:#7a5a3a;
