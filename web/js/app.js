@@ -862,10 +862,10 @@ async function boot() {
   // ---- モード + voice + quick chips ----
   const powerBtn = $('powerBtn');
   function syncModeBtns() {
-    powerBtn.textContent = manualOff ? 'おきる' : 'いまおやすみ';
+    powerBtn.innerHTML = manualOff ? '<span class="ic">☀️</span>おきる' : '<span class="ic">😴</span>おやすみ';
     powerBtn.classList.toggle('off', manualOff);
     const b = $('autoStandbyBtn');
-    b.textContent = '自動おやすみ ' + (autoStandby ? 'ON' : 'OFF');
+    b.innerHTML = '<span class="ic">🌙</span>じどう ' + (autoStandby ? 'ON' : 'OFF');
     b.setAttribute('aria-pressed', String(autoStandby));
   }
   syncModeBtns();
@@ -891,6 +891,10 @@ async function boot() {
     try { localStorage.setItem('hinata-voice', userVoice); } catch { }
     log(`こえ変更: ${userVoice || 'きてい'}`);
     if (live?.connected) { closeLive(); openLive(); } // apply now
+  });
+  $('menuBtn').addEventListener('click', () => {
+    const open = document.querySelector('.wrap').classList.toggle('panel-open');
+    $('menuBtn').setAttribute('aria-pressed', String(open));
   });
   document.querySelectorAll('#chips button[data-say]').forEach(b =>
     b.addEventListener('click', () => chipSay(b.dataset.say)));

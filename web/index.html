@@ -54,6 +54,17 @@
       <button id="repeatBtn"><span class="ic">🔁</span>もういっかい</button>
       <button id="nextBtn"><span class="ic">⏭️</span>つぎ</button>
     </div>
+    <div class="chips right" id="mbar" role="group" aria-label="モード">
+      <button id="menuBtn" aria-pressed="false"><span class="ic">⚙️</span>メニュー</button>
+      <button id="powerBtn"><span class="ic">😴</span>おやすみ</button>
+      <button id="autoStandbyBtn" aria-pressed="true"><span class="ic">🌙</span>じどう ON</button>
+      <select id="voiceSel" aria-label="こえ">
+        <option value="">きてい</option>
+        <option>Aoede</option><option>Kore</option><option>Leda</option>
+        <option>Zephyr</option><option>Puck</option><option>Charon</option>
+        <option>Sulafat</option><option>Vindemiatrix</option>
+      </select>
+    </div>
     <div class="replybar" id="replybar" hidden></div>
 
     <svg class="char" id="koharu" viewBox="0 0 400 400" role="img" aria-label="犬のこはる" style="display:none">
@@ -247,22 +258,6 @@
       <video id="cam" playsinline muted aria-hidden="true"></video>
     </div>
 
-    <div class="group">
-      <h2>モード</h2>
-      <div class="btns">
-        <button id="powerBtn">いまおやすみ</button>
-        <button id="autoStandbyBtn" aria-pressed="true">自動おやすみ ON</button>
-      </div>
-      <div class="btns">
-        <label class="voicelabel" for="voiceSel">こえ</label>
-        <select id="voiceSel">
-          <option value="">きてい（Zephyr）</option>
-          <option>Aoede</option><option>Kore</option><option>Leda</option>
-          <option>Zephyr</option><option>Puck</option><option>Charon</option>
-          <option>Sulafat</option><option>Vindemiatrix</option>
-        </select>
-      </div>
-    </div>
 
     <details class="group">
       <summary>キャラクター</summary>
