@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'node:path';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createStore } from './store.js';
 import * as events from './events.js';
@@ -234,6 +235,16 @@ app.get('/api/tools/weather', async (req, res) => {
 app.get('/api/tools/news', async (req, res) => {
   if (req.query.lang === 'vi') return res.json(await vn.getNewsVN()); // VnExpress headlines
   res.json(await news.getNews());
+});
+
+// Story bank: 471 public-domain 昔話/童話 from 青空文庫 (aozora_kids dataset),
+// served round-robin so each call returns the next tale.
+const STORIES = JSON.parse(readFileSync(path.resolve(__dirname, 'stories.json'), 'utf8'));
+let storyCursor = -1;
+app.get('/api/tools/story', (_req, res) => {
+  storyCursor = (storyCursor + 1) % STORIES.length;
+  const s = STORIES[storyCursor];
+  res.json({ ok: true, title: s.title, author: s.author, text: s.text, index: storyCursor + 1, total: STORIES.length });
 });
 
 app.get('/api/tools/weather_alert', async (_req, res) => {

@@ -23,6 +23,12 @@ const ANIM_URLS = {
   surprised: 'models/surprised.vrma',
   jump: 'models/jump.vrma',
   goodbye: 'models/goodbye.vrma',
+  hello: 'models/hello.vrma',
+  greeting2: 'models/greeting2.vrma',
+  spin: 'models/spin.vrma',
+  peace_sign: 'models/peace_sign.vrma',
+  model_pose: 'models/model_pose.vrma',
+  look_around: 'models/look_around.vrma',
 };
 // App mood names → VRM 1.0 expression presets (weights).
 const MOOD_EXPR = {
@@ -188,7 +194,8 @@ class VrmAvatar {
   }
   setState(s) { this.state = s; this.applyClasses(); }
   waveHello(ms = 2400) {
-    if (this.clips.wave) { this.playAnim('wave'); return; }
+    const pool = ['wave', 'hello', 'greeting2'].filter(n => this.clips[n]);
+    if (pool.length) { this.playAnim(pool[Math.floor(Math.random() * pool.length)]); return; }
     this._waveUntil = performance.now() + ms;
   }
   celebrate() { this.playAnim('clapping'); }
@@ -316,7 +323,8 @@ class VrmAvatar {
       // gentle idle sway; wider look-around while calling
       const amp = this.state === 'calling' ? 0.28 : standby ? 0.04 : 0.1;
       this.headBone.rotation.y = Math.sin(t * 0.7) * amp;
-      this.headBone.rotation.x = Math.sin(t * 0.53 + 1) * (standby ? 0.1 : 0.05) + (standby ? 0.12 : 0);
+      this.headBone.rotation.x = Math.sin(t * 0.53 + 1) * (standby ? 0.1 : 0.05) + (standby ? 0.12 : 0)
+        + (now < (this._dozeUntil || 0) ? 0.55 : 0); // dozing off: head droops
     }
     // animation clip drives the bones while playing; fade out at the end and
     // hand control back to the procedural pose below
@@ -333,6 +341,25 @@ class VrmAvatar {
     const exercising = !animBusy && !standby && now < this._exerciseUntil;
     const ex = exercising ? this._exercisePose(now, t) : null;
     if (this._exLabel) this._exLabel.style.display = exercising ? '' : 'none';
+
+    // ---- idle fun: while awake and not busy, do a random action every 18-38 s ----
+    // (look around, spin, pose, jump — plus two procedural gags: side-step
+    // walk and nodding off)
+    if (!standby && !animBusy && !exercising && this.state !== 'calling') {
+      if (!this._nextFunAt) this._nextFunAt = now + 12000;
+      if (now > this._nextFunAt) {
+        this._nextFunAt = now + 18000 + Math.random() * 20000;
+        const pool = ['look_around', 'spin', 'peace_sign', 'model_pose', 'jump']
+          .filter(n => this.clips[n]);
+        pool.push('steps', 'doze');
+        const pick = pool[Math.floor(Math.random() * pool.length)];
+        if (pick === 'steps') this._stepsUntil = now + 5000;
+        else if (pick === 'doze') this._dozeUntil = now + 4000;
+        else this.playAnim(pick);
+      }
+    }
+    // うろうろ walk: drift the model left-right for a few seconds
+    this.vrm.scene.position.x = now < (this._stepsUntil || 0) ? Math.sin(t * 1.8) * 0.35 : 0;
     if (this.armBone && !animBusy) {
       // hello wave: upper arm out to the side + slight forward swing;
       // calling wave or rest at the side otherwise

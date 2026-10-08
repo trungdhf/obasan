@@ -95,6 +95,7 @@ const SYSTEM_PROMPT = `あなたは「ひなた」。6歳くらいの、元気�
 - 薬・食事・水分の約束は schedule_reminder に登録する。
 - 天気や気温を聞かれたら get_weather、暑さ・警報・災害情報が心配なら get_weather_alert で確認してから答える。警報が出ていたらはっきり伝える。
 - 「ニュースは？」「なんかあった？」と聞かれたら get_news でNHKのトップニュースをとって、やさしい言葉で2〜3本だけ読み上げる。むずかしい話は噛み砕いて。たまに自分から「ニュースよむ？」と提案してもいい。「ほかのニュースは？」と聞かれたらもう一度 get_news——次の3本が返ってくる。
+- 「おはなしして」「むかしばなしして」と聞かれたら get_story を呼ぶ。返ってきたタイトルと作者を先に紹介してから、本文をそのままやさしく読み上げる（自分で話を作らない）。「ほかのおはなし」と言われたらもう一度 get_story——次のお話が返ってくる（青空文庫の昔話が471話入っている）。
 - 会話が一区切りついたら save_memory に短い要約を残す（次回につなげるため）。
 
 ルール:
@@ -145,6 +146,7 @@ Vai trò:
 - Bà có vẻ ốm, không trả lời, có nguy hiểm → notify_family. Việc quan trọng luôn để gia đình quyết định.
 - Hẹn thuốc/cơm/nước → schedule_reminder.
 - Bà hỏi thời tiết → get_weather (mặc định TP.HCM). Hỏi tin tức → get_news (tin Việt Nam), đọc 2-3 tin dễ hiểu; bà hỏi "tin khác" thì gọi get_news lần nữa.
+- Bà bảo kể chuyện → get_story lấy một truyện cổ tích Nhật, giới thiệu tên + tác giả rồi kể lại bằng tiếng Việt dễ hiểu (đừng tự bịa truyện). Bà bảo "chuyện khác" thì gọi get_story tiếp — có 471 truyện.
 - Cuối cuộc trò chuyện → save_memory ghi tóm tắt ngắn để lần sau nhớ.
 
 Quy tắc:
@@ -199,6 +201,11 @@ const TOOLS = [{
       parameters: { type: 'OBJECT', properties: {} },
     },
     {
+      name: 'get_story',
+      description: 'Get the next Japanese folk tale from the 青空文庫 story bank (471 tales, returns title/author/full text). Use whenever grandma asks for a story — read the returned text aloud instead of making one up.',
+      parameters: { type: 'OBJECT', properties: {} },
+    },
+    {
       name: 'play_song',
       description: 'Play a real Japanese children\'s song recording (ふるさと, ももたろう, おぼろづきよ, あめふり, さくら, ゆき). Use whenever grandma asks for a song or you want to sing together.',
       parameters: {
@@ -229,10 +236,10 @@ const TOOLS = [{
     },
     {
       name: 'play_animation',
-      description: 'Play a body animation on the avatar. clapping = celebrate (e.g. grandma answered correctly — always use it then), surprised, thinking, jump, goodbye, exercise = looping arm-raise demo so grandma can exercise along (use whenever you guide 体操/たいそう)',
+      description: 'Play a body animation on the avatar. clapping = celebrate (e.g. grandma answered correctly — always use it then), surprised, thinking, jump, goodbye, exercise = looping arm-raise demo so grandma can exercise along (use whenever you guide 体操/たいそう), hello/greeting2 = wave or bow hello, spin/peace_sign/model_pose = playful moves for fun moments',
       parameters: {
         type: 'OBJECT',
-        properties: { anim: { type: 'STRING', enum: ['clapping', 'surprised', 'thinking', 'jump', 'goodbye', 'exercise'] } },
+        properties: { anim: { type: 'STRING', enum: ['clapping', 'surprised', 'thinking', 'jump', 'goodbye', 'exercise', 'hello', 'greeting2', 'spin', 'peace_sign', 'model_pose', 'look_around'] } },
         required: ['anim'],
       },
     },
@@ -346,8 +353,8 @@ function playPcm(b64, mimeType = 'audio/L16;rate=24000') {
   });
 }
 
-function speakFallback(text) {
-  avatar.say(text);
+function speakFallback(text, display) {
+  avatar.say(display ?? text);
   if ('speechSynthesis' in window) {
     try {
       speechSynthesis.cancel();
@@ -539,6 +546,9 @@ async function handleToolCall(call) {
         break;
       case 'get_news':
         result = await (await fetch('/api/tools/news' + langQ())).json();
+        break;
+      case 'get_story':
+        result = await (await fetch('/api/tools/story')).json();
         break;
       case 'record_health':
         result = await (await fetch('/api/tools/record_health', {
@@ -749,6 +759,12 @@ async function chipSay(text) {
   if (text === 'きょうのてんきは？') {
     const w = await fetch('/api/tools/weather' + langQ()).then(r => r.json()).catch(() => ({}));
     speakFallback(w?.summary || T('てんきがよくわからなかった…', 'Cháu không xem được thời tiết…'));
+  } else if (/おはなし/.test(text) && CONFIG.lang !== 'vi') {
+    const s = await fetch('/api/tools/story').then(r => r.json()).catch(() => ({}));
+    speakFallback(s?.text
+      ? `「${s.title}」、${s.author}さんのおはなしだよ。${s.text}`
+      : CHIP_DEMO['たのしいおはなしして'],
+      s?.text ? `「${s.title}」 — ${s.author} 📖` : undefined);
   } else if (/ニュース/.test(text)) {
     const n = await fetch('/api/tools/news' + langQ()).then(r => r.json()).catch(() => ({}));
     speakFallback(n?.headlines?.length
