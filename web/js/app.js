@@ -623,6 +623,7 @@ function goStandby(reason) {
   // repetitive monologue. Closing the socket right away also stops billing.
   hideReplies();
   stopSong();
+  memRound = 0; quitMemGame(); // grandma dozed off mid-game — clear the overlay
   if (live?.connected) { closeLive(); setLiveBadge(false); }
   stopSpeech(); // stop anything else talking before the farewell
   speakTts(bye).then(() => avatar.hideBubble()); // bubble stays until the line finishes
