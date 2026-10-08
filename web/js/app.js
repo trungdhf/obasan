@@ -6,42 +6,10 @@ import { CONFIG, loadConfig } from './config.js';
 import { Avatar } from './avatar.js';
 import { Presence } from './presence.js';
 import { LiveSession } from './live.js';
+import { LINES, LINES_VI, GAME, CALL_VI } from './lines.js';
 
 const $ = id => document.getElementById(id);
 
-const LINES = {
-  photo: {
-    hello: 'おばあちゃん、こんにちは！ひなただよ。',
-    welcome: 'おばあちゃん、おかえり！',
-    bye: 'じゃあね、またあとでおはなししようね',
-    calls: ['おばあちゃ〜ん、きょうはあついから、おみずのもうね！', 'おばあちゃん、きこえる？おみずのじかんだよ', 'おばあちゃ〜ん、どこにいるの？', 'おばあちゃ〜ん、いっしょにラジオたいそうしよ！', 'おばあちゃん、なぞなぞであそぼうよ〜'],
-  },
-  hinata: null, // same as photo
-  koharu: {
-    hello: 'こんにちは！こはるです。',
-    welcome: '田中さん、おかえりなさい！',
-    bye: 'じゃあ、また後でお話ししましょうね',
-    calls: ['田中さん〜、今日は暑いので、お水を飲みましょうね', '田中さん、聞こえますか？お水の時間ですよ', '田中さ〜ん、どこにいますか？', '田中さん〜、ラジオ体操しましょうよ！', '田中さん、なぞなぞで遊びましょうよ〜'],
-  },
-  mike: {
-    hello: 'おばあちゃん、こんにちは！みけだよ。',
-    welcome: 'おばあちゃん、おかえり！',
-    bye: 'じゃあね、またあとであそぼうね',
-    calls: ['おばあちゃ〜ん、おみずのんだ？みけとラジオたいそうしよ！', 'おばあちゃん、きこえる？おみずのじかんだよ', 'おばあちゃ〜ん、どこかな〜？', 'おばあちゃ〜ん、みけとあそぼ！', 'おばあちゃん、なぞなぞしよ〜'],
-  },
-};
-LINES.hinata = LINES.photo;
-// Vietnamese mode (?lang=vi) — Hinata chats with grandma in Vietnamese.
-const LINES_VI = {
-  photo: {
-    hello: 'Chào bà! Cháu là Hinata đây.',
-    welcome: 'Bà ơi, bà về rồi à!',
-    bye: 'Cháu nghỉ một lát nhé, lát nữa nói chuyện tiếp nha',
-    calls: ['Bà ơi, hôm nay nóng lắm, uống nước đi bà!', 'Bà ơi, bà nghe thấy cháu không? Đến giờ uống nước rồi!', 'Bà ơi, bà đâu rồi?', 'Bà ơi, tập thể dục với cháu đi!', 'Bà ơi, chơi đố vui với cháu nha!'],
-  },
-  koharu: null, hinata: null, mike: null,
-};
-LINES_VI.koharu = LINES_VI.hinata = LINES_VI.mike = LINES_VI.photo;
 const L = () => (CONFIG.lang === 'vi' ? LINES_VI : LINES)[avatar.charKey]
   || (CONFIG.lang === 'vi' ? LINES_VI : LINES).photo;
 // per-language one-liners for fallbacks
@@ -333,13 +301,34 @@ function stopSpeech() {
   speechSrcs.clear();
   try { speechSynthesis.cancel(); } catch { }
 }
+// Fixed lines pre-recorded in the Live voice (backend/scripts/gen-lines.mjs) —
+// the TTS model renders the same prebuilt voice with a different timbre.
+let lineManifest = {};
+const lineCache = new Map(); // path -> Promise<AudioBuffer>
+const liveVoice = () => userVoice || serverCfg.liveVoice || 'Zephyr';
+
 async function speakTts(text) {
-  // Pre-generated line via Gemini TTS (backend). Falls back to speechSynthesis.
+  // Pre-recorded Live-voice clip, else Gemini TTS (backend), else speechSynthesis.
   stopSpeech(); // kill any browser-TTS line or PCM still playing — else two voices overlap
+  const file = lineManifest[liveVoice()]?.[text];
+  if (file) {
+    try {
+      ensureTtsCtx();
+      if (!lineCache.has(file)) {
+        lineCache.set(file, fetch(`/audio/lines/${file}`)
+          .then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+          .then(ab => ttsCtx.decodeAudioData(ab)));
+      }
+      const buf = await lineCache.get(file);
+      avatar.say(text);
+      await playBuffer(buf);
+      return;
+    } catch { lineCache.delete(file); /* fall through to Gemini TTS */ }
+  }
   try {
     const res = await fetch('/api/tts', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, voice: userVoice || undefined }),
+      body: JSON.stringify({ text, voice: liveVoice() }),
     });
     if (res.ok) {
       avatar.say(text);
@@ -351,24 +340,18 @@ async function speakTts(text) {
   speakFallback(text);
 }
 
-function playPcm(b64, mimeType = 'audio/L16;rate=24000') {
+function ensureTtsCtx() {
+  if (ttsCtx) return;
+  ttsCtx = new AudioContext();
+  ttsAnalyser = ttsCtx.createAnalyser();
+  ttsAnalyser.fftSize = 512;
+  ttsAnalyser.connect(ttsCtx.destination);
+  ttsBuf = new Float32Array(ttsAnalyser.fftSize);
+}
+
+function playBuffer(buf) {
   return new Promise(resolve => {
     try {
-      const rate = Number((/rate=(\d+)/.exec(mimeType) || [])[1]) || 24000;
-      const raw = atob(b64);
-      const bytes = new Uint8Array(raw.length);
-      for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
-      const pcm = new Int16Array(bytes.buffer);
-      if (!ttsCtx) {
-        ttsCtx = new AudioContext();
-        ttsAnalyser = ttsCtx.createAnalyser();
-        ttsAnalyser.fftSize = 512;
-        ttsAnalyser.connect(ttsCtx.destination);
-        ttsBuf = new Float32Array(ttsAnalyser.fftSize);
-      }
-      const buf = ttsCtx.createBuffer(1, pcm.length, rate);
-      const ch = buf.getChannelData(0);
-      for (let i = 0; i < pcm.length; i++) ch[i] = pcm[i] / 0x8000;
       const src = ttsCtx.createBufferSource();
       src.buffer = buf;
       src.connect(ttsAnalyser);
@@ -378,6 +361,21 @@ function playPcm(b64, mimeType = 'audio/L16;rate=24000') {
       src.start();
     } catch { resolve(); }
   });
+}
+
+function playPcm(b64, mimeType = 'audio/L16;rate=24000') {
+  try {
+    const rate = Number((/rate=(\d+)/.exec(mimeType) || [])[1]) || 24000;
+    const raw = atob(b64);
+    const bytes = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+    const pcm = new Int16Array(bytes.buffer);
+    ensureTtsCtx();
+    const buf = ttsCtx.createBuffer(1, pcm.length, rate);
+    const ch = buf.getChannelData(0);
+    for (let i = 0; i < pcm.length; i++) ch[i] = pcm[i] / 0x8000;
+    return playBuffer(buf);
+  } catch { return Promise.resolve(); }
 }
 
 function speakFallback(text, display) {
@@ -709,8 +707,8 @@ async function callOnce() {
   log(`呼びかけ ${callCount}/${CONFIG.callAttempts}`);
   const spoken = CONFIG.lang === 'vi'
     ? ((currentCall?.reason || '').startsWith('health_check')
-      ? 'Bà ơi! Bà ăn cơm chưa? Uống thuốc chưa?'
-      : `Bà ơi! ${/くすり|薬/.test(text) ? 'Đến giờ uống thuốc rồi bà!' : /みず|水/.test(text) ? 'Uống nước đi bà!' : 'Ra đây chơi với cháu nè!'}`)
+      ? CALL_VI.health
+      : /くすり|薬/.test(text) ? CALL_VI.medicine : /みず|水/.test(text) ? CALL_VI.water : CALL_VI.play)
     : text;
   setTimeout(() => speakTts(spoken), 700);
   // health check-ins get tap-answer bubbles — grandma can reply with one tap
@@ -847,7 +845,7 @@ function startMemGame() {
     const d = document.createElement('div'); d.className = 'mg-card'; d.textContent = e; grid.appendChild(d);
   });
   avatar?.setMood('thinking');
-  speakTts(T('このえをおぼえてね〜', 'Bà nhớ mấy hình này nha!'));
+  speakTts(T(...GAME.memorize));
   setTimeout(() => {
     if (mg.hidden) return;
     title.textContent = T('さっきのは どれかな？', 'Hồi nãy là hình nào ta?');
@@ -861,7 +859,7 @@ function startMemGame() {
           remaining.delete(e); b.classList.add('done'); b.disabled = true;
           if (remaining.size === 0) {
             avatar?.setMood('happy'); avatar?.playAnim?.('clapping');
-            speakTts(T('せいかい！すごいね〜！つぎいくよ〜', 'Đúng rồi! Giỏi quá! Chơi tiếp nha!'));
+            speakTts(T(...GAME.correct));
             fetch('/api/tools/record_game', {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ game: 'memgame', round: memRound, hits: targets.length, misses: memMiss }),
@@ -872,13 +870,13 @@ function startMemGame() {
           memMiss++;
           b.classList.add('miss'); setTimeout(() => b.classList.remove('miss'), 450);
           avatar?.setMood('worried');
-          speakTts(T('ちがうよ〜、もういっかい！', 'Chưa đúng rồi, thử lại nha!'));
+          speakTts(T(...GAME.wrong));
         }
       };
       grid.appendChild(b);
     });
     avatar?.setMood('normal');
-    speakTts(T('さっきみたえは どれだったかな？えらんでね！', 'Hình nãy là hình nào? Bà chọn đi!'));
+    speakTts(T(...GAME.pick));
   }, 3200 + nTarget * 1400);
 }
 
@@ -1061,6 +1059,8 @@ document.addEventListener('visibilitychange', () => {
 // ---------- boot ----------
 async function boot() {
   serverCfg = await (await fetch('/api/config')).json().catch(() => ({}));
+  fetch('/audio/lines/manifest.json').then(r => r.ok ? r.json() : {})
+    .then(m => { lineManifest = m; }).catch(() => { });
   loadConfig(serverCfg);
 
   try {
@@ -1147,7 +1147,7 @@ async function boot() {
     b.addEventListener('click', () => chipSay(b.dataset.say)))
   $('mgQuit')?.addEventListener('click', () => {
     memRound = 0; quitMemGame(); avatar?.setMood('normal');
-    speakTts(T('おつかれさま〜またあそぼうね', 'Bà giỏi lắm! Lát chơi tiếp nha!'));
+    speakTts(T(...GAME.quit));
   });;
   $('repeatBtn').addEventListener('click', () => {
     log('おねがい: もういっかい');

@@ -76,6 +76,17 @@ image needs both `backend/` and `web/`).
 
 Grab the URL: `gcloud run services describe hinata --region $REGION --format='value(status.url)'`
 
+> **Fixed lines in the Live voice.** Farewell, proactive calls and memory-game
+> feedback are spoken outside a Live turn. They play pre-recorded clips from
+> `web/audio/lines/` (recorded by the Live model itself, so they match the
+> conversation voice; the TTS model renders the same prebuilt voice with a
+> different timbre). After editing `web/js/lines.js` or changing `LIVE_VOICE`,
+> re-record and commit before deploying:
+> ```bash
+> cd backend && node scripts/gen-lines.mjs --voice Zephyr   # needs ADC + ffmpeg
+> ```
+> Lines missing from the manifest fall back to `/api/tts`.
+
 ## 4. Cloud Scheduler (reminders, every minute)
 
 ```bash
