@@ -5,13 +5,13 @@
 | Component | Role |
 | --- | --- |
 | Tablet (web app, Android Chrome kiosk) | Avatar, MediaPipe face detection, Gemini Live client, Wake Lock |
-| Cloud Run (`backend/`) | Agent backend: ephemeral tokens, call/alert logic, LINE webhook, serves `web/` |
+| Cloud Run (`backend/`) | Agent backend: ephemeral tokens, call/alert logic, family API (`/family`), serves `web/` |
 | Gemini Live (native-audio dialog model) | Realtime voice conversation |
 | Gemini Flash TTS | Pre-generated proactive-call lines |
-| Firestore | Conversation summaries, reminders, agent log, family messages |
-| Cloud Scheduler | Fires `/jobs/due` every minute for scheduled reminders |
-| LINE Messaging API | Family messages in, alerts out |
-| Secret Manager / env | LINE tokens, API keys, `JOB_SECRET` |
+| Firestore | Conversation summaries, reminders, health log, game results, agent log |
+| Cloud Scheduler | Fires `/jobs/due` every minute + `/jobs/health-check` 3×/day |
+| Gmail SMTP / LINE API | Family alerts out (email default; LINE optional, messages in) |
+| Secret Manager / env | SMTP/LINE credentials, API keys, `JOB_SECRET`, `FAMILY_TOKEN` |
 
 ## Runtime flows
 
@@ -31,13 +31,13 @@
 
 ### Proactive call
 1. Source: a due reminder (`POST /jobs/due` ← Cloud Scheduler), a weather alert,
-   a family LINE message, or the model's own decision.
+   a family message, or the model's own decision.
 2. Backend publishes a `call` event over SSE → tablet enters **calling** state.
 3. Up to `CALL_ATTEMPTS` (3) attempts, ~9 s apart: chime + call line via
    `POST /api/tts` (Gemini Flash TTS, cached).
 4. Face or voice detected → `POST /api/call-result {responded:true}` → active.
    Otherwise after the last attempt → `{responded:false}` → backend pushes a
-   LINE alert to the family. **A human decides what happens next.**
+   email/LINE alert to the family. **A human decides what happens next.**
 
 ### Family message
 `POST /webhook/line` (signature verified) → stored as data → SSE to the tablet.
@@ -51,8 +51,9 @@ as a command.
 | --- | --- |
 | `memories` | `{summary, kind, at}` — last one loaded into the system prompt |
 | `reminders` | `{at, label, fired, source}` |
-| `agent_log` | `{type, ...}` — every decision the agent takes |
+| `agent_log` | `{type, ...}` — every decision the agent takes, incl. `game_result` (きおくゲーム scores) |
 | `family_messages` | `{text, from, at}` |
+| `health_log` | `{date, meal, ate, medicine, condition, mood, note}` |
 | `alerts` | `{hasAlert, title, detail, level, at}` — injected weather/heat alerts |
 
 Without `GOOGLE_CLOUD_PROJECT` the same interface is served by an in-memory
@@ -62,7 +63,9 @@ store — the whole demo runs on a laptop with zero GCP setup.
 
 - On-device vision only; no frames leave the tablet.
 - Quiet hours 22:00–07:00 JST: `/jobs/due` skips firing.
-- `JOB_SECRET` header gates the Scheduler endpoint.
+- `JOB_SECRET` header gates the Scheduler endpoints.
+- `/family` read API gated by `FAMILY_TOKEN` when set.
 - LINE signature verification on the webhook.
+- The 471-story bank (`src/stories.json`) is public-domain 青空文庫 text.
 - Ephemeral tokens: single-use, expire in 30 min; no long-lived key on device.
 - Escalation is notify-only; humans act.

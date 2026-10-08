@@ -21,18 +21,20 @@ call the family — not just a talking avatar.
 
 5. **2:00–2:30 — Proactive call.** Trigger a reminder (or heat alert).
    Tablet chimes, Hinata calls out 3× from sleep (no open session — pre-made TTS).
-   Ignore it → **family LINE notification appears on a phone**. Then step back in
-   → she responds happily.
+   Ignore it → **【ひなた】見守りアラート email arrives on a phone** (LINE if
+   configured). Then step back in → she responds happily.
 
-6. **2:30–2:50 — Family message.** Send 「おかあさん元気？」 from LINE → Hinata
-   relays it as a call, then chats about it.
+6. **2:30–2:50 — Family dashboard + fun.** Show /family (状態・食事/服薬/げんき/
+   きぶん・ゲーム成績・タイムライン). Quick montage: 📖昔話（青空文庫471話）
+   🧠きおくゲーム 🤸たいそう 🎵唱歌.
 
 7. **2:50–3:00 — Close.** Architecture slide + cost note (~30 min/day ≈ ¥2,000/mo)
-   + "camera frames never leave the tablet".
+   + "camera frames never leave the tablet" + "家族はいつものブラウザで見守れる".
 
 ## Recording tips
 
 - `?idle=8` shortens the standby timeout for the walk-away shot.
 - The right panel IS the demo console — `呼びかけテスト`, `応答をシミュレート`,
   and the agent log are all on screen; zoom/crop as needed.
-- LINE shots: a second phone, or the LINE app on the same screen in split view.
+- LINE shots: optional — a second phone, or the LINE app in split view
+  (email alert works without LINE; show the inbox instead).
