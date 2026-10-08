@@ -133,6 +133,18 @@ details.group>summary+*{margin-top:8px}
   background:#FFF7E8;border:2px solid var(--ai);color:#7a5a3a;
   box-shadow:0 3px 8px rgba(180,140,90,.22)}
 .replybar button:active{background:var(--ai);color:#fff}
+.memgame{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:20px;background:rgba(30,30,46,.5);backdrop-filter:blur(3px)}
+.memgame[hidden]{display:none}
+.mg-head{display:flex;gap:14px;align-items:center}
+.mg-head span{font-size:1.4rem;font-weight:700;color:#fff;background:rgba(0,0,0,.4);padding:10px 20px;border-radius:999px}
+#mgQuit{border-radius:999px;padding:10px 20px;font-weight:700;font-size:1rem;background:#FFF7E8;border:2px solid var(--ai);color:#7a5a3a}
+.mg-grid{display:flex;flex-wrap:wrap;gap:16px;justify-content:center;max-width:640px}
+.mg-card{width:110px;height:110px;border-radius:24px;font-size:4rem;display:flex;align-items:center;justify-content:center;
+  background:#FFFDF7;border:3px solid var(--ai);box-shadow:0 4px 12px rgba(0,0,0,.25);cursor:pointer}
+.mg-card.done{border-color:#4CAF50;background:#E8F5E9}
+.mg-card.miss{animation:mgshake .4s}
+@keyframes mgshake{0%,100%{transform:translateX(0)}25%{transform:translateX(-9px)}75%{transform:translateX(9px)}}
 .voicelabel{font-size:.9rem;font-weight:700;color:var(--ink-soft);align-self:center}
 select{font:inherit;font-weight:700;color:var(--ink);background:var(--panel);border:1.5px solid var(--ai);border-radius:12px;padding:9px 12px;min-height:44px;max-width:190px}
 #powerBtn.off{background:var(--warn);border-color:var(--warn);color:#fff}

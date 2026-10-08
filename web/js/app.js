@@ -73,6 +73,7 @@ const SYSTEM_PROMPT = `あなたは「ひなた」。6歳くらいの、元気�
 - 体操もすすめる: 「ラジオたいそう第一」を口頭でゆっくり案内する（深呼吸・両手を上げる・ひねる等を一言ずつ）。座ってできる運動（イスに座ったまま手足を上げる・のばす）も教える。
 - 運動の前には必ず「むりしないでね」「イスにつかまってね」「つまずかないようにね」と注意を言う。転倒は一番の敵。
 - 「たいそうして」「あそぼう」「なんかして」と言われたら、今日は脳トレ・体操・お話のどれかを提案する。
+- 「おぼえゲームやろ？」とおばあちゃんがうなずいたら、または「のうとれして」と言われたら start_memory_game を呼ぶ——画面にえをおぼえるゲームがはじまる。
 - 体操を案内するときは play_animation:exercise を呼んで、ひなたも手を上げ下げして一緒にやる。「いっしょにやろ〜」と誘う。
 
 ごはん・おくすり・げんき・きぶんのきろく:
@@ -124,6 +125,7 @@ Hát:
 
 Vận động và trí não:
 - Hay gợi ý trò trí tuệ nhẹ: đố vui, tính nhẩm, nối chữ, nhớ lại chuyện vừa kể. Bà sai cũng không chê, cùng nghĩ nhẹ nhàng; đúng thì khen to.
+- Bà đồng ý chơi trí nhớ hoặc bảo "chơi luyện trí não" → gọi start_memory_game (trò nhìn hình ghi nhớ trên màn hình).
 - Khuyên bà tập thể dục nhẹ (ngồi ghế cũng tập được: giơ tay, xoay người). Trước khi tập luôn nhắc "bà đừng cố quá nhé, bám vào ghế cho chắc nha".
 - Khi hướng dẫn thể dục thì gọi play_animation:exercise để Hinata tập mẫu cùng.
 
@@ -242,6 +244,11 @@ const TOOLS = [{
         properties: { summary: { type: 'STRING' } },
         required: ['summary'],
       },
+    },
+    {
+      name: 'start_memory_game',
+      description: 'Start the on-screen memory game (きおくゲーム): pictures appear for grandma to memorize, then similar pictures and she taps the ones she saw. Use when grandma agrees to play a brain-training / memory game.',
+      parameters: { type: 'OBJECT', properties: {} },
     },
     {
       name: 'show_reply_options',
@@ -493,6 +500,10 @@ async function handleToolCall(call) {
       case 'play_animation':
         avatar.playAnim?.(args.anim);
         break;
+      case 'start_memory_game':
+        memRound = 0; startMemGame();
+        result = { ok: true, started: true };
+        break;
       case 'play_song':
         playSong(args.song);
         result = { ok: true, playing: SONGS[args.song]?.title || args.song };
@@ -720,6 +731,11 @@ async function chipSay(text) {
     playSong(keys[Math.floor(Math.random() * keys.length)]);
     return;
   }
+  if (/のうとれ/.test(text)) { // visual memory game — works in demo AND Live
+    lastTopic = 'のうとれであそぼう';
+    memRound = 0; startMemGame();
+    return;
+  }
   if (CHIP_NEXT[text]) lastTopic = text;
   if (live?.connected) { live.sendText(text); return; }
   if (text === 'ほかのうたかけて') {
@@ -750,6 +766,70 @@ async function chipSay(text) {
   }
 }
 let syncModeBtnsRef = null;
+
+// ---------- memory game (きおくゲーム) ----------
+// Round 1: show 1 picture to memorize, then 4 similar cards — grandma taps
+// the one she saw. Each round adds a target (max 3) and one more distractor.
+const MEM_SETS = [
+  ['🍎', '🍐', '🍊', '🍋', '🍑', '🍒', '🍇', '🍓'],
+  ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼'],
+  ['🌸', '🌺', '🌷', '🌹', '🌻', '🌼', '💐', '🍀'],
+  ['🚗', '🚕', '🚙', '🚌', '🚎', '🚓', '🚑', '🚒'],
+  ['🍙', '🍘', '🍚', '🍜', '🍣', '🍱', '🍛', '🍥'],
+  ['🐟', '🐠', '🐡', '🦐', '🦑', '🐙', '🦀', '🐬'],
+  ['⚽', '🏀', '⚾', '🎾', '🏐', '🏉', '🎱', '🏓'],
+  ['🍮', '🍡', '🍦', '🍩', '🍪', '🎂', '🍰', '🥞'],
+];
+let memRound = 0;
+const _shuf = a => { for (let i = a.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0;[a[i], a[j]] = [a[j], a[i]]; } return a; };
+function quitMemGame() {
+  const mg = document.getElementById('memgame'); if (mg) mg.hidden = true;
+}
+function startMemGame() {
+  memRound++;
+  const set = _shuf(MEM_SETS[(Math.random() * MEM_SETS.length) | 0].slice());
+  const nTarget = Math.min(memRound, 3);
+  const targets = set.slice(0, nTarget);
+  const options = _shuf(set.slice(0, nTarget + 3)); // targets + 3 lookalikes
+  const mg = $('memgame'), title = $('mgTitle'), grid = $('mgGrid');
+  if (!mg) return;
+  mg.hidden = false;
+  hideReplies();
+  title.textContent = T(`これを おぼえてね！`, `Bà nhớ mấy hình này nha!`);
+  grid.innerHTML = '';
+  targets.forEach(e => {
+    const d = document.createElement('div'); d.className = 'mg-card'; d.textContent = e; grid.appendChild(d);
+  });
+  avatar?.setMood('thinking');
+  speakTts(T('このえをおぼえてね〜', 'Bà nhớ mấy hình này nha!'));
+  setTimeout(() => {
+    if (mg.hidden) return;
+    title.textContent = T('さっきのは どれかな？', 'Hồi nãy là hình nào ta?');
+    grid.innerHTML = '';
+    const remaining = new Set(targets);
+    options.forEach(e => {
+      const b = document.createElement('button');
+      b.className = 'mg-card'; b.textContent = e;
+      b.onclick = () => {
+        if (remaining.has(e)) {
+          remaining.delete(e); b.classList.add('done'); b.disabled = true;
+          if (remaining.size === 0) {
+            avatar?.setMood('happy'); avatar?.playAnim?.('clapping');
+            speakTts(T('せいかい！すごいね〜！つぎいくよ〜', 'Đúng rồi! Giỏi quá! Chơi tiếp nha!'));
+            setTimeout(() => { if (!mg.hidden) startMemGame(); }, 3500);
+          }
+        } else {
+          b.classList.add('miss'); setTimeout(() => b.classList.remove('miss'), 450);
+          avatar?.setMood('worried');
+          speakTts(T('ちがうよ〜、もういっかい！', 'Chưa đúng rồi, thử lại nha!'));
+        }
+      };
+      grid.appendChild(b);
+    });
+    avatar?.setMood('normal');
+    speakTts(T('さっきみたえは どれだったかな？えらんでね！', 'Hình nãy là hình nào? Bà chọn đi!'));
+  }, 3200 + nTarget * 1400);
+}
 
 // ---------- tap-answer bubbles + repeat/next buttons ----------
 // When Hinata asks something, contextual reply pills appear so grandma can
@@ -1013,7 +1093,11 @@ async function boot() {
     $('menuBtn').setAttribute('aria-pressed', String(open));
   });
   document.querySelectorAll('#chips button[data-say]').forEach(b =>
-    b.addEventListener('click', () => chipSay(b.dataset.say)));
+    b.addEventListener('click', () => chipSay(b.dataset.say)))
+  $('mgQuit')?.addEventListener('click', () => {
+    memRound = 0; quitMemGame(); avatar?.setMood('normal');
+    speakTts(T('おつかれさま〜またあそぼうね', 'Bà giỏi lắm! Lát chơi tiếp nha!'));
+  });;
   $('repeatBtn').addEventListener('click', () => {
     log('おねがい: もういっかい');
     if (live?.connected) {
