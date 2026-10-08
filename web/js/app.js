@@ -782,6 +782,7 @@ const MEM_SETS = [
   ['🍮', '🍡', '🍦', '🍩', '🍪', '🎂', '🍰', '🥞'],
 ];
 let memRound = 0;
+let memMiss = 0; // wrong picks this round — posted to the server with the score
 const _shuf = a => { for (let i = a.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0;[a[i], a[j]] = [a[j], a[i]]; } return a; };
 function quitMemGame() {
   const mg = document.getElementById('memgame'); if (mg) mg.hidden = true;
@@ -794,6 +795,7 @@ function startMemGame() {
   const options = _shuf(set.slice(0, nTarget + 3)); // targets + 3 lookalikes
   const mg = $('memgame'), title = $('mgTitle'), grid = $('mgGrid');
   if (!mg) return;
+  memMiss = 0;
   mg.hidden = false;
   hideReplies();
   title.textContent = T(`これを おぼえてね！`, `Bà nhớ mấy hình này nha!`);
@@ -817,9 +819,14 @@ function startMemGame() {
           if (remaining.size === 0) {
             avatar?.setMood('happy'); avatar?.playAnim?.('clapping');
             speakTts(T('せいかい！すごいね〜！つぎいくよ〜', 'Đúng rồi! Giỏi quá! Chơi tiếp nha!'));
+            fetch('/api/tools/record_game', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ game: 'memgame', round: memRound, hits: targets.length, misses: memMiss }),
+            }).catch(() => { });
             setTimeout(() => { if (!mg.hidden) startMemGame(); }, 3500);
           }
         } else {
+          memMiss++;
           b.classList.add('miss'); setTimeout(() => b.classList.remove('miss'), 450);
           avatar?.setMood('worried');
           speakTts(T('ちがうよ〜、もういっかい！', 'Chưa đúng rồi, thử lại nha!'));

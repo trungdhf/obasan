@@ -122,6 +122,7 @@ const EV = {
   presence: e => e.present ? 'おばあちゃんが いるのを かくにん' : 'おばあちゃんが いなくなった',
   notify_family: e => `かぞくに れんらく: ${e.message||''}`,
   health_log: e => `けんこうきろく (${PERIOD[e.period]||e.period})`,
+  game_result: e => `きおくゲーム ラウンド${e.round}: ${e.hits||0}こ せいかい${e.misses ? `・${e.misses}かい まちがえ` : '（ミスなし）'}`,
   health_check_call: e => 'ごはん・おくすりの かくにんコール',
   reminder_fired: e => `おしらせ: ${e.label||''}`,
   schedule_reminder: e => `よていを とうろく: ${e.label||''}`,

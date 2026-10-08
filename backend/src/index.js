@@ -129,6 +129,15 @@ app.post('/api/tools/schedule_reminder', async (req, res) => {
   res.json({ ok: true, id });
 });
 
+app.post('/api/tools/record_game', async (req, res) => {
+  const game = String(req.body?.game || 'memgame').slice(0, 40);
+  const round = Number(req.body?.round) || 0;
+  const hits = Number(req.body?.hits) || 0;
+  const misses = Number(req.body?.misses) || 0;
+  await store.log({ type: 'game_result', game, round, hits, misses, note: String(req.body?.note || '').slice(0, 200) });
+  res.json({ ok: true });
+});
+
 app.post('/api/tools/save_memory', async (req, res) => {
   const summary = String(req.body?.summary || '').slice(0, 2000);
   if (!summary) return res.status(400).json({ error: 'summary required' });
