@@ -97,6 +97,9 @@ Fallbacks: `?avatar=svg` forces the SVG avatar; any VRM load failure (no WebGL,
 missing file, offline CDN) silently stays on SVG. The キャラクター buttons switch
 between 3D and SVG characters live.
 
+Sources & licenses for every `.vrm`/`.vrma` in `web/models/`:
+[web/models/ATTRIBUTION.md](web/models/ATTRIBUTION.md)
+
 ## Song files
 
 `web/audio/songs/*.mp3` are free traditional-song recordings (ふるさと,
