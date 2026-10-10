@@ -155,13 +155,15 @@ export class LiveSession {
     }
     if (msg.serverContent) {
       const sc = msg.serverContent;
+      if (sc.modelTurn) this._inTurn = true;
       for (const part of sc.modelTurn?.parts || []) {
-        if (part.inlineData?.data) this._playChunk(part.inlineData.data);
+        if (part.inlineData?.data && !this._hushed) this._playChunk(part.inlineData.data);
       }
-      if (sc.outputTranscription?.text) this.h.onTranscript?.(sc.outputTranscription.text, false);
+      if (sc.outputTranscription?.text && !this._hushed) this.h.onTranscript?.(sc.outputTranscription.text, false);
       if (sc.inputTranscription?.text) this.h.onInputTranscript?.(sc.inputTranscription.text);
       if (sc.interrupted) this._flushPlayback() || this.h.onInterrupted?.();
       if (sc.turnComplete) this.h.onTranscript?.('', true);
+      if (sc.turnComplete || sc.interrupted) { this._inTurn = false; this._hushed = false; }
     }
     if (msg.toolCall) {
       for (const call of msg.toolCall.functionCalls || []) this.h.onToolCall?.(call);
@@ -248,6 +250,15 @@ export class LiveSession {
   }
 
   // ---- control ----
+  // Cut Hinata off mid-sentence because the app is about to play its own
+  // audio (a pre-recorded line, a song). Stops what is queued and drops the
+  // rest of the current model turn, so two Hinata voices never overlap.
+  hush() {
+    if (!this.playCtx) return;
+    this._flushPlayback();
+    if (this._inTurn) this._hushed = true;
+  }
+
   sendText(text) {
     this._send({ clientContent: { turns: [{ role: 'user', parts: [{ text }] }], turnComplete: true } });
   }

@@ -310,6 +310,7 @@ const liveVoice = () => userVoice || serverCfg.liveVoice || 'Zephyr';
 async function speakTts(text) {
   // Pre-recorded Live-voice clip, else Gemini TTS (backend), else speechSynthesis.
   stopSpeech(); // kill any browser-TTS line or PCM still playing — else two voices overlap
+  live?.hush(); // and Live mid-sentence (e.g. tapping のうとれ while Hinata is talking)
   const file = lineManifest[liveVoice()]?.[text];
   if (file) {
     try {
@@ -416,6 +417,7 @@ function stopSong() {
 async function playSong(key) {
   const s = SONGS[key] || SONGS.furusato;
   stopSong();
+  live?.hush(); // don't sing over Hinata's own Live voice
   if (!ttsCtx) { // reuse the same graph the TTS path builds
     ttsCtx = new AudioContext();
     ttsAnalyser = ttsCtx.createAnalyser();
