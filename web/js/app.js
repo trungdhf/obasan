@@ -295,7 +295,9 @@ function log(msg) {
 // ---------- speaking backends ----------
 const speechSrcs = new Set(); // in-flight TTS PCM buffers — stop them before
 // speaking again or two Gemini voices play over each other
+let speakSeq = 0; // bumps on every stop — a chunked TTS read checks it to bail out
 function stopSpeech() {
+  speakSeq++;
   for (const s of speechSrcs) { try { s.stop(); } catch { } }
   ttsPlaying = Math.max(0, ttsPlaying - speechSrcs.size);
   speechSrcs.clear();
@@ -307,10 +309,11 @@ let lineManifest = {};
 const lineCache = new Map(); // path -> Promise<AudioBuffer>
 const liveVoice = () => userVoice || serverCfg.liveVoice || 'Zephyr';
 
-async function speakTts(text) {
+async function speakTts(text, display) {
   // Pre-recorded Live-voice clip, else Gemini TTS (backend), else speechSynthesis.
   stopSpeech(); // kill any browser-TTS line or PCM still playing — else two voices overlap
   live?.hush(); // and Live mid-sentence (e.g. tapping のうとれ while Hinata is talking)
+  const my = speakSeq;
   const file = lineManifest[liveVoice()]?.[text];
   if (file) {
     try {
@@ -321,24 +324,47 @@ async function speakTts(text) {
           .then(ab => ttsCtx.decodeAudioData(ab)));
       }
       const buf = await lineCache.get(file);
-      avatar.say(text);
+      if (my !== speakSeq) return;
+      avatar.say(display ?? text);
       await playBuffer(buf);
       return;
     } catch { lineCache.delete(file); /* fall through to Gemini TTS */ }
   }
-  try {
-    const res = await fetch('/api/tts', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, voice: liveVoice() }),
-    });
-    if (res.ok) {
-      avatar.say(text);
-      const { data, mimeType } = await res.json();
-      await playPcm(data, mimeType);
-      return;
-    }
-  } catch { /* fall through to browser TTS */ }
-  speakFallback(text);
+  // Gemini TTS. Long input gets truncated by the TTS model (250+ chars came
+  // back as ~5 s of audio) and it renders at ~0.55x real time, so long text
+  // (stories, news) is read in short sentence chunks: a ~50-char first chunk
+  // to start fast, then ~120-char chunks fetched while the previous plays.
+  const chunks = splitForTts(text, 120, 50).slice(0, 14);
+  const pending = chunks.slice(0, 2).map(ttsFetch); // two in flight: no gap after the short first chunk
+  for (let i = 0; i < chunks.length; i++) {
+    const res = await pending[i];
+    if (my !== speakSeq) return;
+    if (!res) { if (i === 0) break; return; } // first chunk failed → browser voice
+    if (i === 0) avatar.say(display ?? text);
+    if (i + 2 < chunks.length) pending.push(ttsFetch(chunks[i + 2]));
+    await playPcm(res.data, res.mimeType);
+    if (my !== speakSeq) return;
+    if (i === chunks.length - 1) return;
+  }
+  if (my !== speakSeq) return;
+  speakBrowser(text, display);
+}
+
+const ttsFetch = t => fetch('/api/tts', {
+  method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ text: t, voice: liveVoice() }),
+}).then(r => (r.ok ? r.json() : null)).catch(() => null);
+
+function splitForTts(text, max, firstMax = max) {
+  const out = []; let cur = '';
+  const lim = () => (out.length ? max : firstMax);
+  for (const part of text.split(/(?<=[。！？!?、\n])/)) {
+    if (cur && (cur + part).length > lim()) { out.push(cur); cur = ''; }
+    cur += part;
+    while (cur.length > lim()) { const n = lim(); out.push(cur.slice(0, n)); cur = cur.slice(n); }
+  }
+  if (cur.trim()) out.push(cur);
+  return out.length ? out : [text];
 }
 
 function ensureTtsCtx() {
@@ -379,7 +405,14 @@ function playPcm(b64, mimeType = 'audio/L16;rate=24000') {
   } catch { return Promise.resolve(); }
 }
 
+// Lines without a Live session (demo mode, Live down, replies before Live
+// connects): use Hinata's server voice — pre-recorded clip or Gemini TTS —
+// instead of the robotic browser voice; speakBrowser() is the last resort.
 function speakFallback(text, display) {
+  speakTts(text, display);
+}
+
+function speakBrowser(text, display) {
   avatar.say(display ?? text);
   if ('speechSynthesis' in window) {
     try {
