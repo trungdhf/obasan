@@ -24,13 +24,13 @@ export const LINES = {
   },
 };
 LINES.hinata = LINES.photo;
-// Vietnamese mode (?lang=vi) — Hinata chats with grandma in Vietnamese.
+// Vietnamese mode (?lang=vi) — the girl is "Phương Anh" and calls grandma "bà nội".
 export const LINES_VI = {
   photo: {
-    hello: 'Chào bà! Cháu là Hinata đây.',
-    welcome: 'Bà ơi, bà về rồi à!',
-    bye: 'Cháu nghỉ một lát nhé, lát nữa nói chuyện tiếp nha',
-    calls: ['Bà ơi, hôm nay nóng lắm, uống nước đi bà!', 'Bà ơi, bà nghe thấy cháu không? Đến giờ uống nước rồi!', 'Bà ơi, bà đâu rồi?', 'Bà ơi, tập thể dục với cháu đi!', 'Bà ơi, chơi đố vui với cháu nha!'],
+    hello: 'Bà nội ơi! Cháu là Phương Anh đây.',
+    welcome: 'Bà nội ơi, bà nội về rồi à!',
+    bye: 'Cháu nghỉ một lát nha bà nội, lát nữa mình nói chuyện tiếp nha',
+    calls: ['Bà nội ơi, hôm nay nóng lắm, uống nước đi bà!', 'Bà nội ơi, bà nghe thấy cháu không? Đến giờ uống nước rồi!', 'Bà nội ơi, bà nội đâu rồi?', 'Bà nội ơi, tập thể dục với cháu đi!', 'Bà nội ơi, chơi đố vui với cháu nha!'],
   },
   koharu: null, hinata: null, mike: null,
 };
@@ -38,19 +38,19 @@ LINES_VI.koharu = LINES_VI.hinata = LINES_VI.mike = LINES_VI.photo;
 
 // memory game feedback: [ja, vi]
 export const GAME = {
-  memorize: ['このえをおぼえてね〜', 'Bà nhớ mấy hình này nha!'],
-  pick: ['さっきみたえは どれだったかな？えらんでね！', 'Hình nãy là hình nào? Bà chọn đi!'],
+  memorize: ['このえをおぼえてね〜', 'Bà nội nhớ mấy hình này nha!'],
+  pick: ['さっきみたえは どれだったかな？えらんでね！', 'Hình nãy là hình nào? Bà nội chọn đi!'],
   correct: ['せいかい！すごいね〜！つぎいくよ〜', 'Đúng rồi! Giỏi quá! Chơi tiếp nha!'],
   wrong: ['ちがうよ〜、もういっかい！', 'Chưa đúng rồi, thử lại nha!'],
-  quit: ['おつかれさま〜またあそぼうね', 'Bà giỏi lắm! Lát chơi tiếp nha!'],
+  quit: ['おつかれさま〜またあそぼうね', 'Bà nội giỏi lắm! Lát chơi tiếp nha!'],
 };
 
 // Vietnamese proactive-call lines (the reminder text itself is Japanese)
 export const CALL_VI = {
-  health: 'Bà ơi! Bà ăn cơm chưa? Uống thuốc chưa?',
-  medicine: 'Bà ơi! Đến giờ uống thuốc rồi bà!',
-  water: 'Bà ơi! Uống nước đi bà!',
-  play: 'Bà ơi! Ra đây chơi với cháu nè!',
+  health: 'Bà nội ơi! Bà nội ăn cơm chưa? Uống thuốc chưa?',
+  medicine: 'Bà nội ơi! Đến giờ uống thuốc rồi bà!',
+  water: 'Bà nội ơi! Uống nước đi bà!',
+  play: 'Bà nội ơi! Ra đây chơi với cháu nè!',
 };
 
 // Meal-time health check-in (backend /jobs/health-check) — one line per meal

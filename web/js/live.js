@@ -155,7 +155,7 @@ export class LiveSession {
     }
     if (msg.serverContent) {
       const sc = msg.serverContent;
-      if (sc.modelTurn) this._inTurn = true;
+      if (sc.modelTurn) { if (!this._inTurn) this.h.onTurnStart?.(); this._inTurn = true; }
       for (const part of sc.modelTurn?.parts || []) {
         if (part.inlineData?.data && !this._hushed) this._playChunk(part.inlineData.data);
       }

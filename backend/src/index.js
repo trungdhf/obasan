@@ -242,10 +242,45 @@ app.get('/api/tools/news', async (req, res) => {
 // served round-robin so each call returns the next tale.
 const STORIES = JSON.parse(readFileSync(path.resolve(__dirname, 'stories.json'), 'utf8'));
 let storyCursor = -1;
-app.get('/api/tools/story', (_req, res) => {
+// Live gets a tale in ~400-char parts: handed a whole 2-4k-char story at once
+// the model summarised it and jumped to the ending.
+let storyParts = [], storyPart = 0, storyPartAt = 0;
+function splitStory(text, max = 400) {
+  const out = []; let cur = '';
+  for (const s of text.split(/(?<=[。！？\n])/)) {
+    if (cur && (cur + s).length > max) { out.push(cur.trim()); cur = ''; }
+    cur += s;
+  }
+  if (cur.trim()) out.push(cur.trim());
+  return out;
+}
+const storyPayload = s => ({
+  ok: true, title: s.title, author: s.author,
+  part: storyPart + 1, parts: storyParts.length, text: storyParts[storyPart],
+  has_more: storyPart + 1 < storyParts.length,
+});
+app.get('/api/tools/story', (req, res) => {
   storyCursor = (storyCursor + 1) % STORIES.length;
   const s = STORIES[storyCursor];
-  res.json({ ok: true, title: s.title, author: s.author, text: s.text, index: storyCursor + 1, total: STORIES.length });
+  if (req.query.full) { // demo mode reads the whole tale itself
+    return res.json({ ok: true, title: s.title, author: s.author, text: s.text, index: storyCursor + 1, total: STORIES.length });
+  }
+  storyParts = splitStory(s.text); storyPart = 0; storyPartAt = Date.now();
+  res.json(storyPayload(s));
+});
+// The model sometimes fired continue_story several times in a row without
+// reading — each call skipped a part, so the tale "jumped to the end". The
+// model's calls (no ?force) only advance once the current part had time to
+// be read; the app's つづき button passes force=1 (grandma asked for it).
+app.get('/api/tools/story/next', (req, res) => {
+  const s = STORIES[storyCursor];
+  if (!s || !storyParts.length) return res.json({ ok: false, error: 'no story started — call get_story first' });
+  if (storyPart + 1 >= storyParts.length) return res.json({ ok: true, done: true, title: s.title, has_more: false });
+  if (!req.query.force && Date.now() - storyPartAt < 20000) {
+    return res.json({ ok: false, error: 'still reading the current part — finish reading it aloud first, do not call continue_story again yet', part: storyPart + 1, parts: storyParts.length });
+  }
+  storyPart++; storyPartAt = Date.now();
+  res.json(storyPayload(s));
 });
 
 app.get('/api/tools/weather_alert', async (_req, res) => {

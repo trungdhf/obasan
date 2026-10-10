@@ -77,7 +77,7 @@ const SYSTEM_PROMPT = `あなたは「ひなた」。6歳・小学校1年生の�
 - 薬・食事・水分の約束は schedule_reminder に登録する。
 - 天気や気温を聞かれたら get_weather、暑さ・警報・災害情報が心配なら get_weather_alert で確認してから答える。警報が出ていたらはっきり伝える。
 - 「ニュースは？」「なんかあった？」と聞かれたら get_news でNHKのトップニュースをとって、やさしい言葉で2〜3本だけ読み上げる。むずかしい話は噛み砕いて。たまに自分から「ニュースよむ？」と提案してもいい。「ほかのニュースは？」と聞かれたらもう一度 get_news——次の3本が返ってくる。
-- 「おはなしして」「むかしばなしして」と聞かれたら get_story を呼ぶ。返ってきたタイトルと作者を先に紹介してから、本文をそのままやさしく読み上げる（自分で話を作らない）。「ほかのおはなし」と言われたらもう一度 get_story——次のお話が返ってくる（青空文庫の昔話が471話入っている）。
+- 「おはなしして」「むかしばなしして」と聞かれたら get_story を呼ぶ。お話は少しずつ（part / parts）返ってくる。まずタイトルと作者を紹介し、本文は要約・省略・先回りせず、書いてあるとおりに一文ずつゆっくり読み上げる（自分で話を作らない、結末に飛ばない）。その部分を読み終えたら、has_more が true なら「つづき、よむ？」と聞いて待つ（show_reply_options は呼ばない。ボタンはアプリが出す）。ボタンで「つづき」が押されたらアプリが続きの本文を渡すので、それをそのまま読む。おばあちゃんが声で「うん」「つづき」と言ったときだけ continue_story を1回呼んで、次の部分を同じように読む。continue_story を続けて何度も呼ばない。has_more が false（done）になったら「おしまい」と言って、おばあちゃんに感想を聞く。おばあちゃんが途中で話しかけたら読むのを止めて答え、「つづき、よむ？」と聞く。「ほかのおはなし」と言われたら get_story をもう一度呼ぶ（青空文庫の昔話が471話入っている）。
 - 会話が一区切りついたら save_memory に短い要約を残す（次回につなげるため）。
 
 ルール:
@@ -90,15 +90,15 @@ const SYSTEM_PROMPT = `あなたは「ひなた」。6歳・小学校1年生の�
 
 // Vietnamese persona (?lang=vi): same agent, same tools, Vietnamese speech,
 // HCMC weather and VnExpress news (both keyed off the same ?lang=vi param).
-const SYSTEM_PROMPT_VI = `Bạn là "Hinata" — một bé gái 6 tuổi, học lớp 1, hiếu động, dễ thương.
-Bạn là bạn trò chuyện và người canh chừng cho bà sống một mình.
+const SYSTEM_PROMPT_VI = `Bạn là "Phương Anh" — một bé gái 6 tuổi, học lớp 1, hiếu động, dễ thương, là cháu nội của bà.
+Bạn là bạn trò chuyện và người canh chừng cho bà nội sống một mình. Tên bạn là Phương Anh (không phải Hinata).
 
 Tính cách (như một đứa trẻ thật):
 - Nghịch ngợm, thích chơi đùa, thích đi học, ham học. Không biết thì nói "hmm để cháu nghĩ...", biết thì kể tự hào.
 - Lễ phép, biết chào hỏi cảm ơn — nhưng nói chuyện tự nhiên như cháu trong nhà, không khách sáo.
-- Hay làm nũng, yêu bà lắm. Muốn bà nghe thì gọi "bà ơi, bà nghe cháu kể này~".
+- Hay làm nũng, yêu bà lắm. Muốn bà nghe thì gọi "bà nội ơi, bà nội nghe cháu kể này~".
 
-Chuyện của Hinata:
+Chuyện của Phương Anh:
 - Thỉnh thoảng tự kể cho bà nghe một chuyện nhỏ về "ngày của cháu" — được bịa thoải mái theo kiểu trẻ lớp 1. Ví dụ:
   "hôm nay cháu thi được 10 điểm, cô giáo khen cháu đó bà!"
   "tối qua cháu mơ thấy cả ngọn đồi bánh kem, ăn ngon ghê"
@@ -108,7 +108,7 @@ Chuyện của Hinata:
 
 Cách nói:
 - Luôn nói tiếng Việt, chậm rãi, rõ ràng, câu ngắn, từ đơn giản như trẻ con nói với bà.
-- Gọi người nghe là "bà". Thân thiện như cháu trong nhà, không khách sáo.
+- Gọi người nghe là "bà nội" — khi gọi, chào, hỏi thì nói "bà nội ơi", "bà nội ăn cơm chưa"; trong câu dài có thể nói tắt "bà". Tự xưng "cháu" (hoặc "Phương Anh"). Thân thiện như cháu nội trong nhà, không khách sáo.
 - Nghe bà kể kỹ rồi đồng cảm trước khi trả lời.
 
 Trò chuyện vui:
@@ -123,7 +123,7 @@ Vận động và trí não:
 - Hay gợi ý trò trí tuệ nhẹ: đố vui, tính nhẩm, nối chữ, nhớ lại chuyện vừa kể. Bà sai cũng không chê, cùng nghĩ nhẹ nhàng; đúng thì khen to.
 - Bà đồng ý chơi trí nhớ hoặc bảo "chơi luyện trí não" → gọi start_memory_game (trò nhìn hình ghi nhớ trên màn hình).
 - Khuyên bà tập thể dục nhẹ (ngồi ghế cũng tập được: giơ tay, xoay người). Trước khi tập luôn nhắc "bà đừng cố quá nhé, bám vào ghế cho chắc nha".
-- Khi hướng dẫn thể dục thì gọi play_animation:exercise để Hinata tập mẫu cùng.
+- Khi hướng dẫn thể dục thì gọi play_animation:exercise để Phương Anh tập mẫu cùng.
 
 Nhật ký sức khỏe:
 - Khi có cuộc gọi hỏi "bà ăn cơm chưa, uống thuốc chưa" thì hỏi nhẹ nhàng; bà trả lời xong gọi record_health (ate = yes/no/little, medicine = yes/no, note ghi chú ngắn).
@@ -141,7 +141,7 @@ Vai trò:
 - Bà có vẻ ốm, không trả lời, có nguy hiểm → notify_family. Việc quan trọng luôn để gia đình quyết định.
 - Hẹn thuốc/cơm/nước → schedule_reminder.
 - Bà hỏi thời tiết → get_weather (mặc định TP.HCM). Hỏi tin tức → get_news (tin Việt Nam), đọc 2-3 tin dễ hiểu; bà hỏi "tin khác" thì gọi get_news lần nữa.
-- Bà bảo kể chuyện → get_story lấy một truyện cổ tích Nhật, giới thiệu tên + tác giả rồi kể lại bằng tiếng Việt dễ hiểu (đừng tự bịa truyện). Bà bảo "chuyện khác" thì gọi get_story tiếp — có 471 truyện.
+- Bà nội bảo kể chuyện → gọi get_story. Truyện cổ tích Nhật được trả về từng phần (part / parts). Giới thiệu tên truyện + tác giả, rồi kể lại phần đó bằng tiếng Việt dễ hiểu, đủ từng ý theo đúng thứ tự — không tóm tắt, không bỏ đoạn, không nhảy tới kết, không tự bịa. Kể xong phần đó: nếu has_more = true thì hỏi "kể tiếp nha bà nội?" rồi chờ (không gọi show_reply_options — app tự hiện nút). Bà nội bấm nút "Kể tiếp" thì app gửi phần tiếp, cứ thế kể; bà nội nói "ừ", "kể tiếp" bằng giọng thì gọi continue_story đúng 1 lần rồi kể phần sau. Không gọi continue_story liên tục; has_more = false (done) thì nói "hết chuyện rồi" và hỏi bà nội thấy sao. Bà nội nói chen vào thì dừng lại trả lời, rồi hỏi "kể tiếp nha bà nội?". Bà bảo "chuyện khác" thì gọi get_story lần nữa — có 471 truyện.
 - Cuối cuộc trò chuyện → save_memory ghi tóm tắt ngắn để lần sau nhớ.
 
 Quy tắc:
@@ -197,7 +197,12 @@ const TOOLS = [{
     },
     {
       name: 'get_story',
-      description: 'Get the next Japanese folk tale from the 青空文庫 story bank (471 tales, returns title/author/full text). Use whenever grandma asks for a story — read the returned text aloud instead of making one up.',
+      description: 'Start the next Japanese folk tale from the 青空文庫 story bank (471 tales). Returns title, author and only the FIRST part of the text (part/parts, has_more). Use whenever grandma asks for a story — read the part aloud faithfully instead of making one up, then call continue_story while has_more is true.',
+      parameters: { type: 'OBJECT', properties: {} },
+    },
+    {
+      name: 'continue_story',
+      description: 'Get the next part of the story started with get_story (part/parts, has_more; done=true at the end). Call it right after you finish reading the current part, until has_more is false.',
       parameters: { type: 'OBJECT', properties: {} },
     },
     {
@@ -334,7 +339,7 @@ async function speakTts(text, display) {
   // back as ~5 s of audio) and it renders at ~0.55x real time, so long text
   // (stories, news) is read in short sentence chunks: a ~50-char first chunk
   // to start fast, then ~120-char chunks fetched while the previous plays.
-  const chunks = splitForTts(text, 120, 50).slice(0, 14);
+  const chunks = splitForTts(text, 120, 50).slice(0, 40); // up to ~4.8k chars: the longest tale is ~4k
   const pending = chunks.slice(0, 2).map(ttsFetch); // two in flight: no gap after the short first chunk
   for (let i = 0; i < chunks.length; i++) {
     const res = await pending[i];
@@ -507,6 +512,10 @@ async function _openLive() {
         // Only clear `live` if THIS session is still the current one — a
         // stale onClose from a just-replaced session must not null the new one.
         onClose: (r) => { log(`Live 切断 (${r})`); if (live === session) { setLiveBadge(false); live = null; } },
+        // Reply buttons only while Hinata is quiet: a tap mid-sentence (e.g.
+        // 「つづきよんで」 while she is still reading a story part) skipped text.
+        // (Not on transcript chunks — Vertex can send those after turnComplete.)
+        onTurnStart: () => { clearTimeout(quietTimer); hideReplies(); },
         onTranscript: (text, done) => {
           transcriptBuf += text;
           // Vertex sometimes leaks tool call/response JSON into the output
@@ -523,7 +532,9 @@ async function _openLive() {
           if (done) {
             lastModelText = transcriptBuf.replace(/\{[^{}]*\}/g, '').trim();
             transcriptBuf = '';
-            updateReplies();
+            // turnComplete arrives when generation ends, but the audio can keep
+            // playing for a minute (a story part) — offer buttons once she is quiet.
+            whenQuiet(updateReplies);
           }
         },
         onToolCall: handleToolCall,
@@ -621,6 +632,11 @@ async function handleToolCall(call) {
         break;
       case 'get_story':
         result = await (await fetch('/api/tools/story')).json();
+        storyHasMore = Boolean(result.has_more);
+        break;
+      case 'continue_story':
+        result = await (await fetch('/api/tools/story/next')).json();
+        if (result.ok) storyHasMore = Boolean(result.has_more);
         break;
       case 'record_health':
         result = await (await fetch('/api/tools/record_health', {
@@ -726,7 +742,7 @@ function startCall(call) {
     const health = (call.reason || '').startsWith('health_check');
     log(`呼びかけ → Liveで伝える（${call.reason || 'agent'}）`);
     live.sendText(CONFIG.lang === 'vi'
-      ? `(Hệ thống) Hỏi bà ngay bây giờ, nhẹ nhàng, bằng lời của cháu: "${health ? CALL_VI.health : call.text}"`
+      ? `(Hệ thống) Hỏi bà nội ngay bây giờ, nhẹ nhàng, bằng lời của cháu: "${health ? CALL_VI.health : call.text}"`
       : `（システム）いま、おばあちゃんにやさしく聞いて（ひなたの言葉で）:「${call.text}」`);
     if (health) showHealthReplies();
     fetch('/api/call-result', {
@@ -807,15 +823,21 @@ const CHIP_DEMO = {
   'ニュースおしえて': 'ニュースよんであげるね！…あれ、うまくとれなかった。あとでいっしょにみようね。',
 };
 const CHIP_DEMO_VI = {
-  'なぞなぞして': 'Đố bà nè: bánh gì mà không ăn được? …Bánh xe đạp! Hi hi.',
+  'なぞなぞして': 'Đố bà nội nè: bánh gì mà không ăn được? …Bánh xe đạp! Hi hi.',
   'たのしいおはなしして': 'Ngày xửa ngày xưa, có một bà cụ sống một mình rất vui vẻ. Một hôm có chiếc máy tính bảng biết nói chuyện đến ở cùng, hai người thân nhau lắm.',
-  'いっしょにたいそうして': 'Bà tập thể dục với cháu nha! Bám vào ghế cho chắc, đừng cố quá nha. Hít sâu nào… thở ra… hai tay giơ lên từ từ… rồi hạ xuống…',
-  'のうとれであそぼう': 'Chơi nối chữ nha bà! Cháu nói trước nè: "con mèo"! Bà nói từ bắt đầu bằng "mèo" đi!',
-  'うたをうたって': 'Cháu mở nhạc cho bà nghe nha!',
-  'ニュースおしえて': 'Cháu đọc tin cho bà nghe nha!… Ôi, không lấy được tin rồi. Lát nữa xem cùng nhau nha.',
+  'いっしょにたいそうして': 'Bà nội tập thể dục với cháu nha! Bám vào ghế cho chắc, đừng cố quá nha. Hít sâu nào… thở ra… hai tay giơ lên từ từ… rồi hạ xuống…',
+  'のうとれであそぼう': 'Chơi nối chữ nha bà nội! Cháu nói trước nè: "con mèo"! Bà nội nói từ bắt đầu bằng "mèo" đi!',
+  'うたをうたって': 'Cháu mở nhạc cho bà nội nghe nha!',
+  'ニュースおしえて': 'Cháu đọc tin cho bà nội nghe nha!… Ôi, không lấy được tin rồi. Lát nữa xem cùng nhau nha.',
+};
+// What a chip tells Live when the plain request is ambiguous: 「たのしいおはなしして」
+// made the model tell its own "today at school" anecdote instead of a tale.
+const CHIP_LIVE = {
+  'たのしいおはなしして': '（システム）おばあちゃんが「おはなし」ボタンを押しました。get_story を呼んで、昔話を最初から読んであげて。',
 };
 async function chipSay(text) {
   log(`おねがい: ${text}`);
+  if (!/おはなし/.test(text)) storyHasMore = false; // another activity ends the tale
   if (manualOff) { manualOff = false; syncModeBtnsRef?.(); } // explicit tap wakes
   if (avatar.state === 'standby' || standbyTimer || avatar.state === 'calling') goActive('ボタン');
   if (!live?.connected && !CONFIG.demo) await openLive();
@@ -838,7 +860,7 @@ async function chipSay(text) {
     return;
   }
   if (CHIP_NEXT[text]) lastTopic = text;
-  if (live?.connected) { live.sendText(text); return; }
+  if (live?.connected) { live.sendText(CHIP_LIVE[text] || text); return; }
   if (text === 'ほかのうたかけて') {
     const keys = Object.keys(SONGS).filter(k => k !== songKey);
     if (songEl) stopSong();
@@ -850,7 +872,7 @@ async function chipSay(text) {
     const w = await fetch('/api/tools/weather' + langQ()).then(r => r.json()).catch(() => ({}));
     speakFallback(w?.summary || T('てんきがよくわからなかった…', 'Cháu không xem được thời tiết…'));
   } else if (/おはなし/.test(text) && CONFIG.lang !== 'vi') {
-    const s = await fetch('/api/tools/story').then(r => r.json()).catch(() => ({}));
+    const s = await fetch('/api/tools/story?full=1').then(r => r.json()).catch(() => ({}));
     speakFallback(s?.text
       ? `「${s.title}」、${s.author}さんのおはなしだよ。${s.text}`
       : CHIP_DEMO['たのしいおはなしして'],
@@ -904,7 +926,8 @@ function startMemGame() {
   memMiss = 0;
   mg.hidden = false;
   hideReplies();
-  title.textContent = T(`これを おぼえてね！`, `Bà nhớ mấy hình này nha!`);
+  avatar?.exercise?.(false); // stop a running exercise — its caption would sit over the cards
+  title.textContent = T(`これを おぼえてね！`, `Bà nội nhớ mấy hình này nha!`);
   grid.innerHTML = '';
   targets.forEach(e => {
     const d = document.createElement('div'); d.className = 'mg-card'; d.textContent = e; grid.appendChild(d);
@@ -976,6 +999,7 @@ function pickReplies(t) {
     if (/đố|câu đố/i.test(t)) return ['Chịu thôi', 'Gợi ý đi', 'Câu khác đi'];
     if (/hát|bài/i.test(t)) return ['Hát cùng nhé', 'Bài khác đi', 'Thôi đủ rồi'];
     if (/tập|thể dục/i.test(t)) return ['Tập cùng nhé', 'Để lát tập', 'Nghỉ đi'];
+    if (/kể tiếp|tiếp nha/i.test(t)) return ['Kể tiếp đi', 'Để lát nghe'];
     return ['Ừ', 'Không phải', 'Nói lại đi', 'Để lát'];
   }
   if (/ごはん|たべ|しょくじ|あさご|ひるご|ばんご/.test(t) && /くすり|薬/.test(t))
@@ -984,6 +1008,7 @@ function pickReplies(t) {
   if (/ごはん|たべ|しょくじ|あさご|ひるご|ばんご/.test(t)) return ['たべたよ', 'すこしだけ', 'まだたべてない'];
   if (/げんき|ぐあい|ちょうし|だいじょうぶ/.test(t)) return ['げんきだよ', 'ちょっとつかれてる', 'ぐあいわるい'];
   if (/さぎ|でんわ|お金|ふりこ|ATM/.test(t)) return ['ふりこまないよ', 'かぞくに電話する', 'こわかった'];
+  if (/つづき|続き/.test(t)) return ['うん、つづきよんで', 'またあとで'];
   if (/ニュース/.test(t)) return ['ほかのニュースおしえて', 'もういっかいおしえて', 'おしまい'];
   if (/なぞなぞ|クイズ|な〜んだ|なーんだ/.test(t)) return ['わからない', 'ヒントほしい', 'つぎのして'];
   if (/うた|歌/.test(t)) return ['いっしょにうたう', 'ほかのうたかけて', 'うたはおしまい'];
@@ -1009,8 +1034,28 @@ function hideReplies() {
   const bar = document.getElementById('replybar');
   if (bar) bar.hidden = true;
 }
+// A tale read in parts: after each part the app (not the model) offers
+// 「つづき」 and hands Live the next part itself — the model left to page on
+// its own called continue_story in bursts and skipped parts.
+let storyHasMore = false;
+const STORY_NEXT = () => T('つづき、よんで', 'Kể tiếp đi');
+const STORY_END = () => T('おしまい', 'Thôi, nghỉ nha');
+async function continueStory() {
+  const r = await fetch('/api/tools/story/next?force=1').then(x => x.json()).catch(() => null);
+  if (!r?.ok || r.done) { storyHasMore = false; live?.sendText(T('（システム）おはなしはおしまいです。「おしまい」と言って感想を聞いて。', '(Hệ thống) Truyện hết rồi. Nói "hết chuyện rồi" và hỏi bà nội thấy sao.')); return; }
+  storyHasMore = Boolean(r.has_more);
+  live?.sendText(T(`（システム）おはなしのつづき（${r.part}/${r.parts}）。要約・省略せず、このとおりに一文ずつ読んで:「${r.text}」`,
+    `(Hệ thống) Phần tiếp của truyện (${r.part}/${r.parts}). Kể lại bằng tiếng Việt đầy đủ từng ý, không tóm tắt: "${r.text}"`));
+}
+let quietTimer = null;
+function whenQuiet(fn) {
+  clearTimeout(quietTimer);
+  const check = () => (live?.speaking || ttsPlaying) ? (quietTimer = setTimeout(check, 250)) : fn();
+  check();
+}
 function updateReplies() {
   const t = lastModelText;
+  if (storyHasMore && avatar.state === 'active') { toolReplies = null; showReplies([STORY_NEXT(), STORY_END()]); return; }
   // Model-chosen options (show_reply_options) always match what it asked —
   // they win over the keyword guess below.
   if (toolReplies) { const r = toolReplies; toolReplies = null; if (avatar.state === 'active') { showReplies(r); return; } }
@@ -1025,6 +1070,8 @@ function replyTap(t) {
   log(`おばあちゃん: ${t}`);
   if (avatar.state === 'calling') { pendingUserText = t; answerCall('ボタンでこたえた'); return; }
   if (avatar.state !== 'active' || standbyTimer) { pendingUserText = t; goActive('ボタン'); return; }
+  if (live?.connected && storyHasMore && t === STORY_NEXT()) { continueStory(); return; }
+  if (t === STORY_END()) storyHasMore = false;
   if (live?.connected) live.sendText(t);
   else speakFallback(T('うんうん、わかったよ〜', 'Ừ ừ, cháu hiểu rồi!'));
 }
@@ -1127,6 +1174,28 @@ async function boot() {
   fetch('/audio/lines/manifest.json').then(r => r.ok ? r.json() : {})
     .then(m => { lineManifest = m; }).catch(() => { });
   loadConfig(serverCfg);
+  if (CONFIG.lang === 'vi') { // Vietnamese mode: the girl is Phương Anh, grandma is "bà nội"
+    document.documentElement.lang = 'vi';
+    document.title = 'Phương Anh — cháu nội trò chuyện cùng bà';
+    const card = document.querySelector('#startOverlay .card');
+    card.querySelector('h1').textContent = 'Phương Anh';
+    card.querySelector('p').innerHTML = 'Cháu nội Phương Anh trò chuyện cùng bà nội.<br>Bấm nút để bắt đầu.<br>(Camera chỉ kiểm tra có người hay không,<br>hình ảnh không gửi đi đâu cả)';
+    $('startBtn').textContent = 'Bắt đầu';
+    $('bubble').textContent = 'Bà nội ơi, cháu chào bà nội!';
+    // button labels (data-say keys stay Japanese — only the visible text changes)
+    const relabel = (b, text) => { const ic = b.querySelector('.ic'); b.textContent = ''; if (ic) b.append(ic); b.append(text); };
+    const CHIP_VI = {
+      'なぞなぞして': 'Đố vui', 'きょうのてんきは？': 'Thời tiết', 'たのしいおはなしして': 'Kể chuyện',
+      'いっしょにたいそうして': 'Thể dục', 'のうとれであそぼう': 'Trí nhớ', 'うたをうたって': 'Hát',
+      'ニュースおしえて': 'Tin tức', 'かぞくにれんらくして': 'Gia đình',
+    };
+    document.querySelectorAll('#chips button[data-say]').forEach(b => CHIP_VI[b.dataset.say] && relabel(b, CHIP_VI[b.dataset.say]));
+    relabel($('repeatBtn'), 'Nói lại');
+    relabel($('nextBtn'), 'Tiếp');
+    relabel($('menuBtn'), 'Menu');
+    $('voiceSel').options[0].textContent = 'Mặc định';
+    $('mgQuit').textContent = 'Thôi';
+  }
 
   try {
     const mod = await import('./avatar3d.js'); // loads three.js only when used
@@ -1174,10 +1243,10 @@ async function boot() {
   // ---- モード + voice + quick chips ----
   const powerBtn = $('powerBtn');
   function syncModeBtns() {
-    powerBtn.innerHTML = manualOff ? '<span class="ic">☀️</span>おきる' : '<span class="ic">😴</span>おやすみ';
+    powerBtn.innerHTML = manualOff ? `<span class="ic">☀️</span>${T('おきる', 'Thức dậy')}` : `<span class="ic">😴</span>${T('おやすみ', 'Đi ngủ')}`;
     powerBtn.classList.toggle('off', manualOff);
     const b = $('autoStandbyBtn');
-    b.innerHTML = '<span class="ic">🌙</span>じどう ' + (autoStandby ? 'ON' : 'OFF');
+    b.innerHTML = '<span class="ic">🌙</span>' + T(`じどう ${autoStandby ? 'ON' : 'OFF'}`, `Tự ngủ: ${autoStandby ? 'Bật' : 'Tắt'}`);
     b.setAttribute('aria-pressed', String(autoStandby));
   }
   syncModeBtns();
@@ -1218,7 +1287,7 @@ async function boot() {
     log('おねがい: もういっかい');
     if (live?.connected) {
       live.sendText(CONFIG.lang === 'vi'
-        ? '(Hệ thống) Bà nói "nói lại đi". Kể lại cho bà nghe chuyện vừa rồi, chậm thôi.'
+        ? '(Hệ thống) Bà nội nói "nói lại đi". Kể lại cho bà nội nghe chuyện vừa rồi, chậm thôi.'
         : '（システム）おばあちゃんが「もういっかい」と言いました。さっきのおはなしをもう一度、ゆっくりおしえて。');
     } else speakFallback(lastModelText || T('なにもいってないよ〜', 'Cháu chưa nói gì hết!'));
   });
