@@ -23,7 +23,8 @@ const ANIM_URLS = {
   surprised: 'models/surprised.vrma',
   jump: 'models/jump.vrma',
   goodbye: 'models/goodbye.vrma',
-  hello: 'models/hello.vrma',
+  // hello.vrma is authored facing away (hips yaw ~170° for the whole clip),
+  // so Hinata turned her back on grandma — 'hello' plays the wave clip instead.
   greeting2: 'models/greeting2.vrma',
   spin: 'models/spin.vrma',
   peace_sign: 'models/peace_sign.vrma',
@@ -194,7 +195,7 @@ class VrmAvatar {
   }
   setState(s) { this.state = s; this.applyClasses(); }
   waveHello(ms = 2400) {
-    const pool = ['wave', 'hello', 'greeting2'].filter(n => this.clips[n]);
+    const pool = ['wave', 'greeting2'].filter(n => this.clips[n]);
     if (pool.length) { this.playAnim(pool[Math.floor(Math.random() * pool.length)]); return; }
     this._waveUntil = performance.now() + ms;
   }
@@ -252,6 +253,7 @@ class VrmAvatar {
     return p;
   }
   playAnim(name) {
+    if (name === 'hello') name = 'wave';
     if (name === 'exercise') { this.mixer.stopAllAction(); this.exercise(true); return; }
     const clip = this.clips[name];
     if (!clip) { if (name === 'wave') this._waveUntil = performance.now() + 2400; return; }
