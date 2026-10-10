@@ -15,7 +15,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { LINES, LINES_VI, GAME, CALL_VI } from '../../web/js/lines.js';
+import { LINES, LINES_VI, GAME, CALL_VI, healthCallText, HEALTH_LABELS } from '../../web/js/lines.js';
 
 const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
@@ -41,6 +41,7 @@ for (const set of Object.values(LINES_VI)) {
 }
 for (const [j, v] of Object.values(GAME)) { ja.add(j); vi.add(v); }
 Object.values(CALL_VI).forEach(v => vi.add(v));
+HEALTH_LABELS.forEach(l => ja.add(healthCallText(l)));
 
 const PERSONA = {
   ja: 'あなたは「ひなた」、おばあちゃんが大好きな明るい小学1年生の女の子です。',

@@ -52,3 +52,9 @@ export const CALL_VI = {
   water: 'Bà ơi! Uống nước đi bà!',
   play: 'Bà ơi! Ra đây chơi với cháu nè!',
 };
+
+// Meal-time health check-in (backend /jobs/health-check) — one line per meal
+// period so it can be pre-recorded in the Live voice too.
+export const healthCallText = label =>
+  `おばあちゃ〜ん、${label}のごはんたべた？おくすりものんだ？きょうはげんき？ひなたにおしえて〜`;
+export const HEALTH_LABELS = ['あさ', 'ひる', 'ゆうがた'];

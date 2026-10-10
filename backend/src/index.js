@@ -10,6 +10,7 @@ import * as gemini from './gemini.js';
 import * as jma from './jma.js';
 import * as news from './news.js';
 import * as vn from './vn.js';
+import { healthCallText } from '../../web/js/lines.js';
 
 try { process.loadEnvFile(path.resolve(process.cwd(), '.env')); } catch { /* .env optional */ }
 
@@ -217,7 +218,7 @@ app.post('/jobs/health-check', async (req, res) => {
   if (period === 'other') return res.json({ ok: true, skipped: 'not_a_meal_time' });
   const call = {
     id: `health_${Date.now()}`,
-    text: `おばあちゃ〜ん、${label}のごはんたべた？おくすりものんだ？きょうはげんき？ひなたにおしえて〜`,
+    text: healthCallText(label), // shared with web/js/lines.js (pre-recorded in the Live voice)
     reason: `health_check:${period}`,
   };
   await store.log({ type: 'health_check_call', ...call });
