@@ -46,8 +46,8 @@ body{
 .bubble::after{content:"";position:absolute;left:50%;bottom:-12px;transform:translateX(-50%);
   border:12px solid transparent;border-top-color:var(--cream);border-bottom:0}
 .bubble.hidden{opacity:0;transform:translateY(-8px)}
-.exlabel{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:6;
-  background:rgba(255,250,242,.95);color:#a06a2c;font-size:.85rem;font-weight:700;
+.exlabel{position:absolute;bottom:84px;left:50%;transform:translateX(-50%);z-index:8; /* above the reply buttons (bottom:12px), never under them */
+  background:rgba(255,250,242,.95);color:#a06a2c;font-size:1.1rem;font-weight:700;
   padding:5px 16px;border-radius:999px;box-shadow:0 2px 8px rgba(180,140,90,.2);
   pointer-events:none;white-space:nowrap}
 svg.char{width:min(100%,480px);height:auto;display:block}
