@@ -90,15 +90,15 @@ const SYSTEM_PROMPT = `あなたは「ひなた」。6歳・小学校1年生の�
 
 // Vietnamese persona (?lang=vi): same agent, same tools, Vietnamese speech,
 // HCMC weather and VnExpress news (both keyed off the same ?lang=vi param).
-const SYSTEM_PROMPT_VI = `Bạn là "Hinata" — một bé gái 6 tuổi, học lớp 1, hiếu động, dễ thương.
-Bạn là bạn trò chuyện và người canh chừng cho bà sống một mình.
+const SYSTEM_PROMPT_VI = `Bạn là "Phương Anh" — một bé gái 6 tuổi, học lớp 1, hiếu động, dễ thương, là cháu nội của bà.
+Bạn là bạn trò chuyện và người canh chừng cho bà nội sống một mình. Tên bạn là Phương Anh (không phải Hinata).
 
 Tính cách (như một đứa trẻ thật):
 - Nghịch ngợm, thích chơi đùa, thích đi học, ham học. Không biết thì nói "hmm để cháu nghĩ...", biết thì kể tự hào.
 - Lễ phép, biết chào hỏi cảm ơn — nhưng nói chuyện tự nhiên như cháu trong nhà, không khách sáo.
-- Hay làm nũng, yêu bà lắm. Muốn bà nghe thì gọi "bà ơi, bà nghe cháu kể này~".
+- Hay làm nũng, yêu bà lắm. Muốn bà nghe thì gọi "bà nội ơi, bà nội nghe cháu kể này~".
 
-Chuyện của Hinata:
+Chuyện của Phương Anh:
 - Thỉnh thoảng tự kể cho bà nghe một chuyện nhỏ về "ngày của cháu" — được bịa thoải mái theo kiểu trẻ lớp 1. Ví dụ:
   "hôm nay cháu thi được 10 điểm, cô giáo khen cháu đó bà!"
   "tối qua cháu mơ thấy cả ngọn đồi bánh kem, ăn ngon ghê"
@@ -108,7 +108,7 @@ Chuyện của Hinata:
 
 Cách nói:
 - Luôn nói tiếng Việt, chậm rãi, rõ ràng, câu ngắn, từ đơn giản như trẻ con nói với bà.
-- Gọi người nghe là "bà". Thân thiện như cháu trong nhà, không khách sáo.
+- Gọi người nghe là "bà nội" — khi gọi, chào, hỏi thì nói "bà nội ơi", "bà nội ăn cơm chưa"; trong câu dài có thể nói tắt "bà". Tự xưng "cháu" (hoặc "Phương Anh"). Thân thiện như cháu nội trong nhà, không khách sáo.
 - Nghe bà kể kỹ rồi đồng cảm trước khi trả lời.
 
 Trò chuyện vui:
@@ -123,7 +123,7 @@ Vận động và trí não:
 - Hay gợi ý trò trí tuệ nhẹ: đố vui, tính nhẩm, nối chữ, nhớ lại chuyện vừa kể. Bà sai cũng không chê, cùng nghĩ nhẹ nhàng; đúng thì khen to.
 - Bà đồng ý chơi trí nhớ hoặc bảo "chơi luyện trí não" → gọi start_memory_game (trò nhìn hình ghi nhớ trên màn hình).
 - Khuyên bà tập thể dục nhẹ (ngồi ghế cũng tập được: giơ tay, xoay người). Trước khi tập luôn nhắc "bà đừng cố quá nhé, bám vào ghế cho chắc nha".
-- Khi hướng dẫn thể dục thì gọi play_animation:exercise để Hinata tập mẫu cùng.
+- Khi hướng dẫn thể dục thì gọi play_animation:exercise để Phương Anh tập mẫu cùng.
 
 Nhật ký sức khỏe:
 - Khi có cuộc gọi hỏi "bà ăn cơm chưa, uống thuốc chưa" thì hỏi nhẹ nhàng; bà trả lời xong gọi record_health (ate = yes/no/little, medicine = yes/no, note ghi chú ngắn).
@@ -726,7 +726,7 @@ function startCall(call) {
     const health = (call.reason || '').startsWith('health_check');
     log(`呼びかけ → Liveで伝える（${call.reason || 'agent'}）`);
     live.sendText(CONFIG.lang === 'vi'
-      ? `(Hệ thống) Hỏi bà ngay bây giờ, nhẹ nhàng, bằng lời của cháu: "${health ? CALL_VI.health : call.text}"`
+      ? `(Hệ thống) Hỏi bà nội ngay bây giờ, nhẹ nhàng, bằng lời của cháu: "${health ? CALL_VI.health : call.text}"`
       : `（システム）いま、おばあちゃんにやさしく聞いて（ひなたの言葉で）:「${call.text}」`);
     if (health) showHealthReplies();
     fetch('/api/call-result', {
@@ -807,12 +807,12 @@ const CHIP_DEMO = {
   'ニュースおしえて': 'ニュースよんであげるね！…あれ、うまくとれなかった。あとでいっしょにみようね。',
 };
 const CHIP_DEMO_VI = {
-  'なぞなぞして': 'Đố bà nè: bánh gì mà không ăn được? …Bánh xe đạp! Hi hi.',
+  'なぞなぞして': 'Đố bà nội nè: bánh gì mà không ăn được? …Bánh xe đạp! Hi hi.',
   'たのしいおはなしして': 'Ngày xửa ngày xưa, có một bà cụ sống một mình rất vui vẻ. Một hôm có chiếc máy tính bảng biết nói chuyện đến ở cùng, hai người thân nhau lắm.',
-  'いっしょにたいそうして': 'Bà tập thể dục với cháu nha! Bám vào ghế cho chắc, đừng cố quá nha. Hít sâu nào… thở ra… hai tay giơ lên từ từ… rồi hạ xuống…',
-  'のうとれであそぼう': 'Chơi nối chữ nha bà! Cháu nói trước nè: "con mèo"! Bà nói từ bắt đầu bằng "mèo" đi!',
-  'うたをうたって': 'Cháu mở nhạc cho bà nghe nha!',
-  'ニュースおしえて': 'Cháu đọc tin cho bà nghe nha!… Ôi, không lấy được tin rồi. Lát nữa xem cùng nhau nha.',
+  'いっしょにたいそうして': 'Bà nội tập thể dục với cháu nha! Bám vào ghế cho chắc, đừng cố quá nha. Hít sâu nào… thở ra… hai tay giơ lên từ từ… rồi hạ xuống…',
+  'のうとれであそぼう': 'Chơi nối chữ nha bà nội! Cháu nói trước nè: "con mèo"! Bà nội nói từ bắt đầu bằng "mèo" đi!',
+  'うたをうたって': 'Cháu mở nhạc cho bà nội nghe nha!',
+  'ニュースおしえて': 'Cháu đọc tin cho bà nội nghe nha!… Ôi, không lấy được tin rồi. Lát nữa xem cùng nhau nha.',
 };
 async function chipSay(text) {
   log(`おねがい: ${text}`);
@@ -904,7 +904,7 @@ function startMemGame() {
   memMiss = 0;
   mg.hidden = false;
   hideReplies();
-  title.textContent = T(`これを おぼえてね！`, `Bà nhớ mấy hình này nha!`);
+  title.textContent = T(`これを おぼえてね！`, `Bà nội nhớ mấy hình này nha!`);
   grid.innerHTML = '';
   targets.forEach(e => {
     const d = document.createElement('div'); d.className = 'mg-card'; d.textContent = e; grid.appendChild(d);
@@ -1127,6 +1127,15 @@ async function boot() {
   fetch('/audio/lines/manifest.json').then(r => r.ok ? r.json() : {})
     .then(m => { lineManifest = m; }).catch(() => { });
   loadConfig(serverCfg);
+  if (CONFIG.lang === 'vi') { // Vietnamese mode: the girl is Phương Anh, grandma is "bà nội"
+    document.documentElement.lang = 'vi';
+    document.title = 'Phương Anh — cháu nội trò chuyện cùng bà';
+    const card = document.querySelector('#startOverlay .card');
+    card.querySelector('h1').textContent = 'Phương Anh';
+    card.querySelector('p').innerHTML = 'Cháu nội Phương Anh trò chuyện cùng bà nội.<br>Bấm nút để bắt đầu.<br>(Camera chỉ kiểm tra có người hay không,<br>hình ảnh không gửi đi đâu cả)';
+    $('startBtn').textContent = 'Bắt đầu';
+    $('bubble').textContent = 'Bà nội ơi, cháu chào bà nội!';
+  }
 
   try {
     const mod = await import('./avatar3d.js'); // loads three.js only when used
@@ -1218,7 +1227,7 @@ async function boot() {
     log('おねがい: もういっかい');
     if (live?.connected) {
       live.sendText(CONFIG.lang === 'vi'
-        ? '(Hệ thống) Bà nói "nói lại đi". Kể lại cho bà nghe chuyện vừa rồi, chậm thôi.'
+        ? '(Hệ thống) Bà nội nói "nói lại đi". Kể lại cho bà nội nghe chuyện vừa rồi, chậm thôi.'
         : '（システム）おばあちゃんが「もういっかい」と言いました。さっきのおはなしをもう一度、ゆっくりおしえて。');
     } else speakFallback(lastModelText || T('なにもいってないよ〜', 'Cháu chưa nói gì hết!'));
   });

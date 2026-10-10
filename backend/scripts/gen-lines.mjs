@@ -45,7 +45,7 @@ HEALTH_LABELS.forEach(l => ja.add(healthCallText(l)));
 
 const PERSONA = {
   ja: 'あなたは「ひなた」、おばあちゃんが大好きな明るい小学1年生の女の子です。',
-  vi: 'Bạn là "Hinata", một bé gái lớp 1 vui vẻ, rất thương bà.',
+  vi: 'Bạn là "Phương Anh", một bé gái lớp 1 vui vẻ, cháu nội rất thương bà nội.',
 };
 const RULE = 'ユーザーが送る文章を、ひなたの声でそのまま一字一句読み上げてください。言葉を足したり、省いたり、返事をしたりしないでください。'
   + ' / Read the user text aloud exactly as written, in character. Do not add, drop or answer anything.';
@@ -98,6 +98,15 @@ function toMp3(pcm, out) {
 const manifest = fs.existsSync(MANIFEST) ? JSON.parse(fs.readFileSync(MANIFEST, 'utf8')) : {};
 const entries = manifest[VOICE] ||= {};
 fs.mkdirSync(path.join(ROOT, VOICE), { recursive: true });
+
+// drop clips for lines that no longer exist (edited/renamed text)
+for (const [t, f] of Object.entries(entries)) {
+  if (ja.has(t) || vi.has(t)) continue;
+  try { fs.unlinkSync(path.join(ROOT, f)); } catch { }
+  delete entries[t];
+  console.log(`  rm  ${t}`);
+}
+fs.writeFileSync(MANIFEST, JSON.stringify(manifest, null, 1) + '\n');
 
 const todo = [...[...ja].map(t => [t, 'ja']), ...[...vi].map(t => [t, 'vi'])]
   .filter(([t]) => FORCE || !entries[t]);
