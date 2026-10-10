@@ -37,14 +37,19 @@ body{
 .stars{position:absolute;inset:0;opacity:0;transition:opacity .8s ease;pointer-events:none}
 .stage.night .stars{opacity:1}
 .bubble{
-  position:absolute;top:0;left:0;right:0;z-index:5;
+  position:absolute;top:0;left:0;right:0;z-index:20; /* top layer: never under buttons, cards or captions */
   background:var(--cream);color:#33291F;
   border-radius:0 0 22px 22px;padding:14px 20px;font-size:clamp(1.15rem,2.6vw,1.45rem);line-height:1.55;white-space:pre-line;
+  /* at most 3 lines, newest at the bottom — a long story line must not cover the screen */
+  max-height:calc(3 * 1.55em + 28px);overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;
+  -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 16px);mask-image:linear-gradient(to bottom,transparent 0,#000 16px);
   font-weight:700;text-align:center;box-shadow:0 2px 0 #E2CFAE;
   transition:opacity .3s ease,transform .3s ease;
 }
 .bubble::after{content:"";position:absolute;left:50%;bottom:-12px;transform:translateX(-50%);
   border:12px solid transparent;border-top-color:var(--cream);border-bottom:0}
+@media (max-height:820px){.bubble{max-height:calc(2 * 1.55em + 28px)}} /* short screens: keep clear of the top chip */
+@media (max-height:760px){.bubble{font-size:1.1rem;padding:10px 18px;max-height:calc(2 * 1.55em + 20px)}}
 .bubble.hidden{opacity:0;transform:translateY(-8px)}
 .exlabel{position:absolute;bottom:84px;left:50%;transform:translateX(-50%);z-index:8; /* above the reply buttons (bottom:12px), never under them */
   background:rgba(255,250,242,.95);color:#a06a2c;font-size:1.1rem;font-weight:700;
