@@ -310,6 +310,7 @@ const liveVoice = () => userVoice || serverCfg.liveVoice || 'Zephyr';
 async function speakTts(text) {
   // Pre-recorded Live-voice clip, else Gemini TTS (backend), else speechSynthesis.
   stopSpeech(); // kill any browser-TTS line or PCM still playing — else two voices overlap
+  live?.hush(); // and Live mid-sentence (e.g. tapping のうとれ while Hinata is talking)
   const file = lineManifest[liveVoice()]?.[text];
   if (file) {
     try {
@@ -416,6 +417,7 @@ function stopSong() {
 async function playSong(key) {
   const s = SONGS[key] || SONGS.furusato;
   stopSong();
+  live?.hush(); // don't sing over Hinata's own Live voice
   if (!ttsCtx) { // reuse the same graph the TTS path builds
     ttsCtx = new AudioContext();
     ttsAnalyser = ttsCtx.createAnalyser();
@@ -520,8 +522,20 @@ function setLiveBadge(on) {
   $('liveBadge').classList.toggle('on', Boolean(on));
 }
 
+const recentTools = new Map(); // call signature -> last time it ran
 async function handleToolCall(call) {
   const { id, name, args = {} } = call;
+  // Live sometimes re-issues the exact same call in a loop (seen: 90×
+  // show_reply_options, 4× record_health in a few seconds). Don't re-run it;
+  // tell the model it's done so it goes back to talking.
+  const sig = name + JSON.stringify(args);
+  const now = performance.now();
+  if (now - (recentTools.get(sig) || -1e9) < 8000) {
+    recentTools.set(sig, now);
+    live?.sendToolResponse(id, name, { ok: true, note: 'already done — do not call this again; just keep talking to grandma' });
+    return;
+  }
+  recentTools.set(sig, now);
   log(`ツール: ${name} ${JSON.stringify(args)}`);
   let result = { ok: true };
   try {
@@ -672,6 +686,22 @@ function goStandby(reason) {
 
 function startCall(call) {
   if (avatar.state === 'calling') return;
+  // Grandma is right here and Live is connected: let Live ask, instead of
+  // switching to call mode and playing the call line over Live's own voice
+  // (two Hinata voices talking at once) and re-ringing her 3 times.
+  if (avatar.state === 'active' && !standbyTimer && live?.connected) {
+    const health = (call.reason || '').startsWith('health_check');
+    log(`呼びかけ → Liveで伝える（${call.reason || 'agent'}）`);
+    live.sendText(CONFIG.lang === 'vi'
+      ? `(Hệ thống) Hỏi bà ngay bây giờ, nhẹ nhàng, bằng lời của cháu: "${health ? CALL_VI.health : call.text}"`
+      : `（システム）いま、おばあちゃんにやさしく聞いて（ひなたの言葉で）:「${call.text}」`);
+    if (health) showHealthReplies();
+    fetch('/api/call-result', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: call.id, responded: true }),
+    }).catch(() => { });
+    return;
+  }
   clearTimeout(standbyTimer); standbyTimer = null; // a call pre-empts pending standby
   currentCall = call;
   avatar.setState('calling');
@@ -712,12 +742,14 @@ async function callOnce() {
     : text;
   setTimeout(() => speakTts(spoken), 700);
   // health check-ins get tap-answer bubbles — grandma can reply with one tap
-  if ((currentCall?.reason || '').startsWith('health_check')) {
-    showReplies(CONFIG.lang === 'vi'
-      ? ['Ăn rồi, uống rồi', 'Chưa đâu', 'Hơi mệt', 'Để lát']
-      : ['たべたよ、のんだよ', 'まだなんだ', 'ちょっとつかれてる', 'あとで']);
-  }
+  if ((currentCall?.reason || '').startsWith('health_check')) showHealthReplies();
   callTimer = setTimeout(callOnce, CONFIG.callIntervalMs);
+}
+
+function showHealthReplies() {
+  showReplies(CONFIG.lang === 'vi'
+    ? ['Ăn rồi, uống rồi', 'Chưa đâu', 'Hơi mệt', 'Để lát']
+    : ['たべたよ、のんだよ', 'まだなんだ', 'ちょっとつかれてる', 'あとで']);
 }
 
 async function reportPresence(present, source) {

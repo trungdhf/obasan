@@ -46,8 +46,8 @@ body{
 .bubble::after{content:"";position:absolute;left:50%;bottom:-12px;transform:translateX(-50%);
   border:12px solid transparent;border-top-color:var(--cream);border-bottom:0}
 .bubble.hidden{opacity:0;transform:translateY(-8px)}
-.exlabel{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:6;
-  background:rgba(255,250,242,.95);color:#a06a2c;font-size:.85rem;font-weight:700;
+.exlabel{position:absolute;bottom:84px;left:50%;transform:translateX(-50%);z-index:8; /* above the reply buttons (bottom:12px), never under them */
+  background:rgba(255,250,242,.95);color:#a06a2c;font-size:1.1rem;font-weight:700;
   padding:5px 16px;border-radius:999px;box-shadow:0 2px 8px rgba(180,140,90,.2);
   pointer-events:none;white-space:nowrap}
 svg.char{width:min(100%,480px);height:auto;display:block}
@@ -134,7 +134,8 @@ details.group>summary+*{margin-top:8px}
   box-shadow:0 3px 8px rgba(180,140,90,.22)}
 .replybar button:active{background:var(--ai);color:#fff}
 .memgame{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
-  gap:16px;padding:20px 12px 26px;background:rgba(30,30,46,.35);backdrop-filter:blur(2px)}
+  gap:16px;padding:20px 12px 26px;pointer-events:none} /* no dim/blur: Hinata stays clear behind the cards */
+.memgame>*{pointer-events:auto}
 .memgame[hidden]{display:none}
 .mg-head{display:flex;gap:14px;align-items:center}
 .mg-head span{font-size:1.4rem;font-weight:700;color:#fff;background:rgba(0,0,0,.4);padding:10px 20px;border-radius:999px}
