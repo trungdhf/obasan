@@ -134,7 +134,8 @@ details.group>summary+*{margin-top:8px}
   box-shadow:0 3px 8px rgba(180,140,90,.22)}
 .replybar button:active{background:var(--ai);color:#fff}
 .memgame{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
-  gap:16px;padding:20px 12px 26px;background:rgba(30,30,46,.35);backdrop-filter:blur(2px)}
+  gap:16px;padding:20px 12px 26px;pointer-events:none} /* no dim/blur: Hinata stays clear behind the cards */
+.memgame>*{pointer-events:auto}
 .memgame[hidden]{display:none}
 .mg-head{display:flex;gap:14px;align-items:center}
 .mg-head span{font-size:1.4rem;font-weight:700;color:#fff;background:rgba(0,0,0,.4);padding:10px 20px;border-radius:999px}
