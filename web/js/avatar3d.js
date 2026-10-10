@@ -13,6 +13,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 import { VRMAnimationLoaderPlugin, createVRMAnimationClip } from '@pixiv/three-vrm-animation';
+import { CONFIG } from './config.js';
 
 const MODEL_URL = 'models/hinata.vrm';
 // .vrma clips on the shared humanoid skeleton — work on any VRM model.
@@ -49,13 +50,13 @@ const EXPR_KEYS = ['happy', 'angry', 'sad', 'relaxed', 'surprised'];
 // rep cycle; rZ/lZ are deltas added to the rest arm rotations (negative
 // raises the right arm, positive raises the left). ~80 s total.
 const EXERCISE_MOVES = [
-  { key: 'breath',  label: '① しんこきゅう — うでをあげて', secs: 10 },
-  { key: 'chest',   label: '② むねをはって',               secs: 10 },
-  { key: 'lean',    label: '③ よこにかたむく',             secs: 14 },
-  { key: 'twist',   label: '④ からだをひねる',             secs: 14 },
-  { key: 'arms',    label: '⑤ うでをまわす',               secs: 12 },
-  { key: 'stretch', label: '⑥ おおきくのび',               secs: 10 },
-  { key: 'breath',  label: '⑦ しんこきゅう — おわり',       secs: 10 },
+  { key: 'breath',  label: '① しんこきゅう — うでをあげて', vi: '① Hít thở sâu — giơ tay lên', secs: 10 },
+  { key: 'chest',   label: '② むねをはって',               vi: '② Ưỡn ngực',                  secs: 10 },
+  { key: 'lean',    label: '③ よこにかたむく',             vi: '③ Nghiêng người sang bên',    secs: 14 },
+  { key: 'twist',   label: '④ からだをひねる',             vi: '④ Vặn người',                 secs: 14 },
+  { key: 'arms',    label: '⑤ うでをまわす',               vi: '⑤ Xoay tay',                  secs: 12 },
+  { key: 'stretch', label: '⑥ おおきくのび',               vi: '⑥ Vươn vai thật cao',         secs: 10 },
+  { key: 'breath',  label: '⑦ しんこきゅう — おわり',       vi: '⑦ Hít thở sâu — xong rồi',    secs: 10 },
 ];
 
 class VrmAvatar {
@@ -218,7 +219,7 @@ class VrmAvatar {
     for (const m of EXERCISE_MOVES) { if (el < m.secs) { move = m; break; } el -= m.secs; }
     if (this._exMove !== move && this._exLabel) {
       this._exMove = move;
-      this._exLabel.textContent = move.label;
+      this._exLabel.textContent = (CONFIG.lang === 'vi' && move.vi) || move.label;
     }
     const s4 = 0.5 + 0.5 * Math.sin(t * Math.PI / 2);          // 4 s rep
     const s3 = 0.5 + 0.5 * Math.sin(t * Math.PI * 2 / 3);      // 3 s rep
@@ -447,6 +448,7 @@ export class HybridAvatar {
   say(t, o) { this._active.say(t, o); }
   waveHello(ms) { this._active.waveHello?.(ms); }
   playAnim(n) { this._active.playAnim?.(n); }
+  exercise(on, ms) { this._active.exercise?.(on, ms); }
   celebrate() { this._active.celebrate?.() || this._active.playAnim?.('clapping'); }
   hideBubble() { this._active.hideBubble(); }
   ensureAudio() { return this._active.ensureAudio(); }
