@@ -345,7 +345,8 @@ async function speakTts(text, display) {
     const res = await pending[i];
     if (my !== speakSeq) return;
     if (!res) { if (i === 0) break; return; } // first chunk failed → browser voice
-    if (i === 0) avatar.say(display ?? text);
+    // long reads: the bubble follows the chunk being spoken, not the whole text
+    avatar.say(chunks.length > 1 ? chunks[i] : (display ?? text));
     if (i + 2 < chunks.length) pending.push(ttsFetch(chunks[i + 2]));
     await playPcm(res.data, res.mimeType);
     if (my !== speakSeq) return;
