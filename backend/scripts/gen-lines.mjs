@@ -15,7 +15,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { LINES, LINES_VI, GAME, CALL_VI, healthCallText, HEALTH_LABELS } from '../../web/js/lines.js';
+import { LINES, LINES_VI, GAME, CALL_VI, healthCallText, HEALTH_LABELS, CHIP_DEMO, CHIP_DEMO_VI, DEMO_MISC } from '../../web/js/lines.js';
 
 const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
@@ -33,15 +33,19 @@ const MANIFEST = path.join(ROOT, 'manifest.json');
 const ja = new Set(), vi = new Set();
 for (const set of Object.values(LINES)) {
   if (!set) continue;
-  ja.add(set.bye); set.calls.forEach(c => ja.add(c));
+  ja.add(set.bye); ja.add(set.welcome); ja.add(set.welcomeAsk); ja.add(set.hello); set.calls.forEach(c => ja.add(c));
 }
 for (const set of Object.values(LINES_VI)) {
   if (!set) continue;
-  vi.add(set.bye); set.calls.forEach(c => vi.add(c));
+  vi.add(set.bye); vi.add(set.welcome); vi.add(set.welcomeAsk); vi.add(set.hello); set.calls.forEach(c => vi.add(c));
 }
 for (const [j, v] of Object.values(GAME)) { ja.add(j); vi.add(v); }
 Object.values(CALL_VI).forEach(v => vi.add(v));
 HEALTH_LABELS.forEach(l => ja.add(healthCallText(l)));
+// demo mode (no Live session) speaks these canned lines
+Object.values(CHIP_DEMO).forEach(t => ja.add(t));
+Object.values(CHIP_DEMO_VI).forEach(t => vi.add(t));
+for (const [j, v] of Object.values(DEMO_MISC)) { ja.add(j); vi.add(v); }
 
 const PERSONA = {
   ja: 'あなたは「ひなた」、おばあちゃんが大好きな明るい小学1年生の女の子です。',
