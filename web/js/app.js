@@ -151,6 +151,12 @@ Quy tắc:
 Bây giờ là: {{NOW}}
 Những gì cháu nhớ về bà: {{MEMORY}}`;
 
+// UI-only tools. After a plain {ok:true} Live resumed by re-saying the whole
+// paragraph it had just spoken (seen after show_reply_options). The result
+// now tells it not to repeat. (scheduling SILENT stopped it mid-sentence
+// instead: 「…để cháu đố bà nè」 and the riddle itself was never asked.)
+const UI_TOOLS = new Set(['set_emotion', 'play_animation', 'show_reply_options']);
+const UI_TOOL_NOTE = 'done (shown on screen). Do NOT repeat anything you already said. If your sentence was unfinished, continue from where you stopped; otherwise stay silent and wait for grandma.';
 const TOOLS = [{
   functionDeclarations: [
     {
@@ -520,6 +526,12 @@ async function _openLive() {
         micMuted: () => ttsPlaying > 0 || Boolean(songEl && !songEl.paused),
         onTranscript: (text, done) => {
           transcriptBuf += text;
+          // Safety net: Live sometimes loops inside one turn
+          // (「Dạ bà nội nghe rõ nha…」 x20). Cut the turn at the first repeat.
+          if (text && !done && repeatsInTurn(transcriptBuf)) {
+            live?.hush();
+            log('くり返しを検出 → このターンを停止');
+          }
           // Vertex sometimes leaks tool call/response JSON into the output
           // transcription stream — strip brace groups so the bubble only
           // ever shows spoken Japanese.
@@ -664,6 +676,7 @@ async function handleToolCall(call) {
   } catch (e) {
     result = { ok: false, error: String(e) };
   }
+  if (UI_TOOLS.has(name) && result.ok) result.note = UI_TOOL_NOTE;
   live?.sendToolResponse(id, name, result);
 }
 
@@ -1048,6 +1061,17 @@ async function continueStory() {
   storyHasMore = Boolean(r.has_more);
   live?.sendText(T(`（システム）おはなしのつづき（${r.part}/${r.parts}）。要約・省略せず、このとおりに一文ずつ読んで:「${r.text}」`,
     `(Hệ thống) Phần tiếp của truyện (${r.part}/${r.parts}). Kể lại bằng tiếng Việt đầy đủ từng ý, không tóm tắt: "${r.text}"`));
+}
+// true once a sentence of 10+ chars occurs twice in the current turn
+function repeatsInTurn(t) {
+  const seen = new Set();
+  for (const raw of t.replace(/\{[^{}]*\}/g, '').split(/(?<=[。！？!?.])/)) {
+    const k = raw.replace(/[\s、。！？!?,.…〜~ー「」"]/g, '').toLowerCase();
+    if (k.length < 10) continue;
+    if (seen.has(k)) return true;
+    seen.add(k);
+  }
+  return false;
 }
 let quietTimer = null;
 function whenQuiet(fn) {
