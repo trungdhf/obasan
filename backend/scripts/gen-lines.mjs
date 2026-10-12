@@ -21,6 +21,7 @@ const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
 const VOICE = opt('--voice', process.env.LIVE_VOICE || 'Zephyr');
 const FORCE = args.includes('--force');
+const PITCH = Number(opt('--pitch', process.env.LINES_PITCH ?? 3)); // semitones; needs ffmpeg with librubberband
 const MODEL = process.env.LIVE_MODEL || 'gemini-live-2.5-flash';
 const PROJECT = process.env.VERTEX_PROJECT || process.env.GOOGLE_CLOUD_PROJECT
   || execSync('gcloud config get-value project').toString().trim();
@@ -95,7 +96,10 @@ function toMp3(pcm, out) {
   // Live audio: 24 kHz mono s16le. Trim leading/trailing silence.
   execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y',
     '-f', 's16le', '-ar', '24000', '-ac', '1', '-i', 'pipe:0',
-    '-af', 'silenceremove=start_periods=1:start_threshold=-50dB,areverse,silenceremove=start_periods=1:start_threshold=-50dB,areverse',
+    // + Hinata's child voice: +PITCH semitones, formants shifted, tempo kept
+    // (same shift the app applies to live audio — web/js/voicefx.js)
+    '-af', 'silenceremove=start_periods=1:start_threshold=-50dB,areverse,silenceremove=start_periods=1:start_threshold=-50dB,areverse'
+      + (PITCH ? `,rubberband=pitch=${(2 ** (PITCH / 12)).toFixed(4)}:formant=shifted:pitchq=quality` : ''),
     '-c:a', 'libmp3lame', '-b:a', '64k', out], { input: pcm });
 }
 

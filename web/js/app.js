@@ -6,6 +6,7 @@ import { CONFIG, loadConfig } from './config.js';
 import { Avatar } from './avatar.js';
 import { Presence } from './presence.js';
 import { LiveSession } from './live.js';
+import { pitchBuffer } from './voicefx.js';
 import { LINES, LINES_VI, GAME, CALL_VI, CHIP_DEMO, CHIP_DEMO_VI, DEMO_MISC } from './lines.js';
 
 const $ = id => document.getElementById(id);
@@ -410,9 +411,11 @@ function playPcm(b64, mimeType = 'audio/L16;rate=24000') {
     for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
     const pcm = new Int16Array(bytes.buffer);
     ensureTtsCtx();
-    const buf = ttsCtx.createBuffer(1, pcm.length, rate);
-    const ch = buf.getChannelData(0);
-    for (let i = 0; i < pcm.length; i++) ch[i] = pcm[i] / 0x8000;
+    let f = new Float32Array(pcm.length);
+    for (let i = 0; i < pcm.length; i++) f[i] = pcm[i] / 0x8000;
+    if (CONFIG.voicePitch) f = pitchBuffer(f, rate, CONFIG.voicePitch); // same child voice as Live
+    const buf = ttsCtx.createBuffer(1, f.length, rate);
+    buf.getChannelData(0).set(f);
     return playBuffer(buf);
   } catch { return Promise.resolve(); }
 }
@@ -512,6 +515,7 @@ async function _openLive() {
     const session = new LiveSession({
       token, model, vertex, location, project,
       voice: userVoice || serverCfg.liveVoice || 'Zephyr',
+      pitch: CONFIG.voicePitch,
       languageCode: CONFIG.lang === 'vi' ? 'vi-VN' : 'ja-JP',
       systemPrompt: prompt, tools: TOOLS,
       handlers: {
