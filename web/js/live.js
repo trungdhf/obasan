@@ -125,6 +125,20 @@ export class LiveSession {
         tools: this.tools,
         inputAudioTranscription: {},
         outputAudioTranscription: {},
+        // With the defaults any sound the mic picked up (TV, a cough, a door,
+        // Hinata's own voice from the speaker) cut her off mid-sentence, so
+        // the conversation kept stalling. Let her finish her turn; start
+        // speech only on clear voice and wait 1.2 s of silence before
+        // treating grandma's (often slow, halting) answer as finished.
+        realtimeInputConfig: {
+          activityHandling: 'NO_INTERRUPTION',
+          automaticActivityDetection: {
+            startOfSpeechSensitivity: 'START_SENSITIVITY_LOW',
+            endOfSpeechSensitivity: 'END_SENSITIVITY_LOW',
+            prefixPaddingMs: 300,
+            silenceDurationMs: 1200,
+          },
+        },
       },
     });
   }
@@ -197,6 +211,12 @@ export class LiveSession {
 
   _onMicFrame(float32) {
     if (!this.connected) return;
+    // Half-duplex: while Hinata (or the app: a recorded line, a song) is
+    // playing — plus a short echo tail — send silence instead of the mic, so
+    // the speaker's own sound never reaches the model as "grandma".
+    const now = performance.now();
+    if (this.speaking || this.h.micMuted?.()) this._muteUntil = now + 500;
+    if (now < (this._muteUntil || 0)) float32 = new Float32Array(float32.length);
     const down = resample(float32, this.micCtx.sampleRate, IN_RATE);
     // accumulate ~100ms chunks before sending
     const merged = new Float32Array(this._pcmBuf.length + down.length);
