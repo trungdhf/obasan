@@ -6,7 +6,7 @@ import { CONFIG, loadConfig } from './config.js';
 import { Avatar } from './avatar.js';
 import { Presence } from './presence.js';
 import { LiveSession } from './live.js';
-import { LINES, LINES_VI, GAME, CALL_VI } from './lines.js';
+import { LINES, LINES_VI, GAME, CALL_VI, CHIP_DEMO, CHIP_DEMO_VI, DEMO_MISC } from './lines.js';
 
 const $ = id => document.getElementById(id);
 
@@ -702,6 +702,15 @@ function earLevel() {
 }
 
 // ---------- state machine ----------
+// Greeting asks how she is (feeling, meals, medicine) at most every 3 h —
+// she walks in and out all day and shouldn't be quizzed each time.
+const HEALTH_ASK_EVERY_MS = 3 * 3600e3;
+function healthAskDue() {
+  let t = 0; try { t = Number(localStorage.getItem('hinata-health-ask')) || 0; } catch { }
+  return Date.now() - t > HEALTH_ASK_EVERY_MS;
+}
+function markHealthAsk() { try { localStorage.setItem('hinata-health-ask', String(Date.now())); } catch { } }
+
 function goActive(reason) {
   clearTimeout(callTimer); callCount = 0; currentCall = null;
   clearTimeout(standbyTimer); standbyTimer = null; // cancel a farewell in progress
@@ -711,18 +720,24 @@ function goActive(reason) {
   avatar.setMood('happy');
   avatar.waveHello?.();          // ひなた waves when greeting grandma
   reportPresence(true, reason);
+  const askHealth = !pendingUserText && healthAskDue(); // not right after she answered a call
+  if (askHealth) markHealthAsk();
   if (CONFIG.demo) {
-    speakFallback(L().welcome);
+    speakFallback(askHealth ? L().welcomeAsk : L().welcome);
+    if (askHealth) setTimeout(() => whenQuiet(showHealthReplies), 1500);
   } else {
     openLive().then(() => {
       if (avatar.state !== 'active') return; // she left while Live was connecting
       if (live?.connected) {
-        live.sendText('（システム）おばあちゃんが戻ってきました。短くあいさつして。');
+        live.sendText(askHealth
+          ? T('（システム）おばあちゃんが戻ってきました。あいさつして、きょうのたいちょうをやさしく聞いて（「きょうはげんき？」「ごはんたべた？おくすりのんだ？」など。2〜3文で短く）。',
+            '(Hệ thống) Bà nội vừa quay lại. Chào bà nội rồi hỏi thăm sức khỏe nhẹ nhàng ("hôm nay bà nội khỏe không?", "bà nội ăn cơm, uống thuốc chưa?"), 2-3 câu ngắn thôi.')
+          : T('（システム）おばあちゃんが戻ってきました。短くあいさつして。', '(Hệ thống) Bà nội vừa quay lại. Chào bà nội ngắn gọn thôi.'));
         if (pendingUserText) {
           const m = pendingUserText; pendingUserText = null;
           setTimeout(() => live?.sendText(m), 1800);
         }
-      } else speakFallback(L().welcome);
+      } else speakFallback(askHealth ? L().welcomeAsk : L().welcome);
     });
   }
   log(`おばあちゃん検出（${reason}）。Liveセッション再開。`);
@@ -829,22 +844,6 @@ async function reportPresence(present, source) {
 // Live connected → sent as grandma's request so Hinata answers naturally
 // (weather chips use the get_weather tool; かぞく uses notify_family).
 // Demo/no-Live fallback: canned lines, real JMA weather, or the notify endpoint.
-const CHIP_DEMO = {
-  'なぞなぞして': 'なぞなぞだよ！パンはパンでも、たべられないパン、な〜んだ？……フライパン！えへへ。',
-  'たのしいおはなしして': 'むかしむかし、あるところにげんきなおばあさんがすんでいました。あるひ、おはなしするタブレットがやってきて、ふたりはなかよしになったそうな。',
-  'いっしょにたいそうして': 'いっしょにたいそうしよう！イスにつかまってね、むりしないでね。まずふかーく深呼吸…すってー、はいてー。両手をゆっくりあげて〜、さげて〜。',
-  'のうとれであそぼう': 'しりとりしよう！わたしからいくね。「ひ・な・た」！「た」からはじまることば、なんだ？',
-  'うたをうたって': 'うたうね〜！♪うさぎおいし〜、かのやま〜、こぶなつりし〜、かのかわ〜♪ …えへへ、ふるさとだよ！',
-  'ニュースおしえて': 'ニュースよんであげるね！…あれ、うまくとれなかった。あとでいっしょにみようね。',
-};
-const CHIP_DEMO_VI = {
-  'なぞなぞして': 'Đố bà nội nè: bánh gì mà không ăn được? …Bánh xe đạp! Hi hi.',
-  'たのしいおはなしして': 'Ngày xửa ngày xưa, có một bà cụ sống một mình rất vui vẻ. Một hôm có chiếc máy tính bảng biết nói chuyện đến ở cùng, hai người thân nhau lắm.',
-  'いっしょにたいそうして': 'Bà nội tập thể dục với cháu nha! Bám vào ghế cho chắc, đừng cố quá nha. Hít sâu nào… thở ra… hai tay giơ lên từ từ… rồi hạ xuống…',
-  'のうとれであそぼう': 'Chơi nối chữ nha bà nội! Cháu nói trước nè: "con mèo"! Bà nội nói từ bắt đầu bằng "mèo" đi!',
-  'うたをうたって': 'Cháu mở nhạc cho bà nội nghe nha!',
-  'ニュースおしえて': 'Cháu đọc tin cho bà nội nghe nha!… Ôi, không lấy được tin rồi. Lát nữa xem cùng nhau nha.',
-};
 // What a chip tells Live when the plain request is ambiguous: 「たのしいおはなしして」
 // made the model tell its own "today at school" anecdote instead of a tale.
 const CHIP_LIVE = {
@@ -885,7 +884,7 @@ async function chipSay(text) {
   if (/たいそう|うんどう/.test(text)) avatar.playAnim?.('exercise');
   if (text === 'きょうのてんきは？') {
     const w = await fetch('/api/tools/weather' + langQ()).then(r => r.json()).catch(() => ({}));
-    speakFallback(w?.summary || T('てんきがよくわからなかった…', 'Cháu không xem được thời tiết…'));
+    speakFallback(w?.summary || T(...DEMO_MISC.weatherFail));
   } else if (/おはなし/.test(text) && CONFIG.lang !== 'vi') {
     const s = await fetch('/api/tools/story?full=1').then(r => r.json()).catch(() => ({}));
     speakFallback(s?.text
@@ -903,10 +902,10 @@ async function chipSay(text) {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: 'おばあちゃんから「連絡して」のボタン', reason: 'button' }),
     }).catch(() => { });
-    speakFallback(T('かぞくにれんらくしておいたよ！', 'Cháu báo cho gia đình rồi nha!'));
+    speakFallback(T(...DEMO_MISC.family));
   } else {
     speakFallback((CONFIG.lang === 'vi' ? CHIP_DEMO_VI : CHIP_DEMO)[text]
-      || T('えへへ、いっしょにあそぼう！', 'Hi hi, mình chơi cùng nhau nha!'));
+      || T(...DEMO_MISC.play));
   }
 }
 let syncModeBtnsRef = null;
@@ -1099,7 +1098,7 @@ function replyTap(t) {
   if (live?.connected && storyHasMore && t === STORY_NEXT()) { continueStory(); return; }
   if (t === STORY_END()) storyHasMore = false;
   if (live?.connected) live.sendText(t);
-  else speakFallback(T('うんうん、わかったよ〜', 'Ừ ừ, cháu hiểu rồi!'));
+  else speakFallback(T(...DEMO_MISC.ok));
 }
 
 // ---------- SSE ----------
@@ -1315,7 +1314,7 @@ async function boot() {
       live.sendText(CONFIG.lang === 'vi'
         ? '(Hệ thống) Bà nội nói "nói lại đi". Kể lại cho bà nội nghe chuyện vừa rồi, chậm thôi.'
         : '（システム）おばあちゃんが「もういっかい」と言いました。さっきのおはなしをもう一度、ゆっくりおしえて。');
-    } else speakFallback(lastModelText || T('なにもいってないよ〜', 'Cháu chưa nói gì hết!'));
+    } else speakFallback(lastModelText || T(...DEMO_MISC.nothing));
   });
   $('nextBtn').addEventListener('click', () => {
     log('おねがい: つぎ');
