@@ -8,6 +8,7 @@ export const CONFIG = {
   char: 'photo',            // 'photo' (Hinata expressions) | 'hinata' | 'koharu'
   demo: false,              // forced true when backend reports no Gemini key
   lang: 'ja',               // 'ja' | 'vi' — ?lang=vi runs the Vietnamese mode
+  voicePitch: 3,            // semitones up: Gemini voices are adult, Hinata is 6 (?pitch=0 off)
 };
 
 export function loadConfig(serverCfg = {}) {
@@ -18,6 +19,7 @@ export function loadConfig(serverCfg = {}) {
   if (q.get('demo') === '1') CONFIG.demo = true;
   if (q.get('char')) CONFIG.char = q.get('char');
   if (q.get('lang')) CONFIG.lang = q.get('lang') === 'vi' ? 'vi' : 'ja';
+  if (q.has('pitch')) CONFIG.voicePitch = Number(q.get('pitch')) || 0;
   if (q.get('idle')) CONFIG.idleToStandbySec = Number(q.get('idle')) || CONFIG.idleToStandbySec;
   return CONFIG;
 }

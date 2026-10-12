@@ -9,6 +9,7 @@
 // Mic → 16kHz PCM up; model audio → 24kHz PCM playback with an analyser
 // feeding the avatar's lip-sync. No SDK dependency in the browser.
 
+import { pitchStream } from './voicefx.js';
 const WS_URL = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained';
 function vertexWsUrl(location) {
   // 'global' location → bare host (no {location}- prefix).
@@ -62,7 +63,8 @@ registerProcessor('pcm-cap', PcmCap);`;
 export class LiveSession {
   // handlers: onOpen, onClose(reason), onError(err), onTranscript(text, turnComplete),
   //           onInputTranscript(text), onToolCall(call), onInterrupted
-  constructor({ token, model, voice, systemPrompt, tools, handlers, vertex, location, project, languageCode }) {
+  constructor({ token, model, voice, systemPrompt, tools, handlers, vertex, location, project, languageCode, pitch }) {
+    this.fx = pitch ? pitchStream(pitch, OUT_RATE) : null; // child-voice pitch shift (voicefx.js)
     this.token = token;
     this.vertex = Boolean(vertex);
     this.location = location || 'us-central1';
@@ -176,6 +178,7 @@ export class LiveSession {
       if (sc.outputTranscription?.text && !this._hushed) this.h.onTranscript?.(sc.outputTranscription.text, false);
       if (sc.inputTranscription?.text) this.h.onInputTranscript?.(sc.inputTranscription.text);
       if (sc.interrupted) this._flushPlayback() || this.h.onInterrupted?.();
+      if (sc.turnComplete && this.fx && !this._hushed) this._schedule(this.fx.flush()); // tail held in the pitch shifter
       if (sc.turnComplete) this.h.onTranscript?.('', true);
       if (sc.turnComplete || sc.interrupted) { this._inTurn = false; this._hushed = false; }
     }
@@ -242,9 +245,16 @@ export class LiveSession {
 
   _playChunk(b64) {
     const pcm = new Int16Array(b64decode(b64).buffer);
-    const buf = this.playCtx.createBuffer(1, pcm.length, OUT_RATE);
-    const ch = buf.getChannelData(0);
-    for (let i = 0; i < pcm.length; i++) ch[i] = pcm[i] / 0x8000;
+    let f = new Float32Array(pcm.length);
+    for (let i = 0; i < pcm.length; i++) f[i] = pcm[i] / 0x8000;
+    if (this.fx) f = this.fx.push(f);
+    this._schedule(f);
+  }
+
+  _schedule(f) {
+    if (!f.length) return;
+    const buf = this.playCtx.createBuffer(1, f.length, OUT_RATE);
+    buf.getChannelData(0).set(f);
     const src = this.playCtx.createBufferSource();
     src.buffer = buf;
     src.connect(this.outAnalyser);
@@ -256,6 +266,7 @@ export class LiveSession {
   }
 
   _flushPlayback() {
+    this.fx?.reset();
     for (const s of this._sources) { try { s.stop(); } catch { } }
     this._sources.clear();
     this._nextPlay = this.playCtx.currentTime;
