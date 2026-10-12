@@ -517,6 +517,7 @@ async function _openLive() {
         // 「つづきよんで」 while she is still reading a story part) skipped text.
         // (Not on transcript chunks — Vertex can send those after turnComplete.)
         onTurnStart: () => { clearTimeout(quietTimer); hideReplies(); },
+        micMuted: () => ttsPlaying > 0 || Boolean(songEl && !songEl.paused),
         onTranscript: (text, done) => {
           transcriptBuf += text;
           // Vertex sometimes leaks tool call/response JSON into the output
