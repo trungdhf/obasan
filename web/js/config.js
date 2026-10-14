@@ -8,7 +8,7 @@ export const CONFIG = {
   char: 'photo',            // 'photo' (Hinata expressions) | 'hinata' | 'koharu'
   demo: false,              // forced true when backend reports no Gemini key
   lang: 'ja',               // 'ja' | 'vi' — ?lang=vi runs the Vietnamese mode
-  voicePitch: 3,            // semitones up: Gemini voices are adult, Hinata is 6 (?pitch=0 off)
+  voicePitch: 0,            // semitones up for a child-like voice (?pitch=3); 0 = Gemini's own voice, as in the demo video
 };
 
 export function loadConfig(serverCfg = {}) {
