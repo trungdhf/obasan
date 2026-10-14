@@ -21,7 +21,7 @@ const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
 const VOICE = opt('--voice', process.env.LIVE_VOICE || 'Zephyr');
 const FORCE = args.includes('--force');
-const PITCH = Number(opt('--pitch', process.env.LINES_PITCH ?? 3)); // semitones; needs ffmpeg with librubberband
+const PITCH = Number(opt('--pitch', process.env.LINES_PITCH ?? 0)); // semitones; needs ffmpeg with librubberband
 const MODEL = process.env.LIVE_MODEL || 'gemini-live-2.5-flash';
 const PROJECT = process.env.VERTEX_PROJECT || process.env.GOOGLE_CLOUD_PROJECT
   || execSync('gcloud config get-value project').toString().trim();
