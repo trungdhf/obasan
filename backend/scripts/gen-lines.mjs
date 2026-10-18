@@ -34,11 +34,11 @@ const MANIFEST = path.join(ROOT, 'manifest.json');
 const ja = new Set(), vi = new Set();
 for (const set of Object.values(LINES)) {
   if (!set) continue;
-  ja.add(set.bye); ja.add(set.welcome); ja.add(set.welcomeAsk); ja.add(set.hello); set.calls.forEach(c => ja.add(c));
+  ja.add(set.bye); ja.add(set.welcome); ja.add(set.welcomeAsk); ja.add(set.welcomeOpen); ja.add(set.hello); set.calls.forEach(c => ja.add(c));
 }
 for (const set of Object.values(LINES_VI)) {
   if (!set) continue;
-  vi.add(set.bye); vi.add(set.welcome); vi.add(set.welcomeAsk); vi.add(set.hello); set.calls.forEach(c => vi.add(c));
+  vi.add(set.bye); vi.add(set.welcome); vi.add(set.welcomeAsk); vi.add(set.welcomeOpen); vi.add(set.hello); set.calls.forEach(c => vi.add(c));
 }
 for (const [j, v] of Object.values(GAME)) { ja.add(j); vi.add(v); }
 Object.values(CALL_VI).forEach(v => vi.add(v));

@@ -175,12 +175,12 @@ export class LiveSession {
       for (const part of sc.modelTurn?.parts || []) {
         if (part.inlineData?.data && !this._hushed) this._playChunk(part.inlineData.data);
       }
-      if (sc.outputTranscription?.text && !this._hushed) this.h.onTranscript?.(sc.outputTranscription.text, false);
+      if (sc.outputTranscription?.text && !this._hushed && !this._muteText) this.h.onTranscript?.(sc.outputTranscription.text, false);
       if (sc.inputTranscription?.text) this.h.onInputTranscript?.(sc.inputTranscription.text);
       if (sc.interrupted) this._flushPlayback() || this.h.onInterrupted?.();
       if (sc.turnComplete && this.fx && !this._hushed) this._schedule(this.fx.flush()); // tail held in the pitch shifter
       if (sc.turnComplete) this.h.onTranscript?.('', true);
-      if (sc.turnComplete || sc.interrupted) { this._inTurn = false; this._hushed = false; }
+      if (sc.turnComplete || sc.interrupted) { this._inTurn = false; this._hushed = false; this._turnT0 = null; this._cutAt = null; this._muteText = false; }
     }
     if (msg.toolCall) {
       for (const call of msg.toolCall.functionCalls || []) this.h.onToolCall?.(call);
@@ -259,7 +259,11 @@ export class LiveSession {
     src.buffer = buf;
     src.connect(this.outAnalyser);
     const start = Math.max(this.playCtx.currentTime + 0.02, this._nextPlay);
+    if (this._cutAt != null && start >= this._cutAt) return; // past a repeat cut
     src.start(start);
+    if (this._cutAt != null) src.stop(this._cutAt);
+    src._t0 = start;
+    if (this._turnT0 == null) this._turnT0 = start; // first audio of this turn
     this._nextPlay = start + buf.duration;
     this._sources.add(src);
     src.onended = () => this._sources.delete(src);
@@ -288,6 +292,25 @@ export class LiveSession {
     if (!this.playCtx) return;
     this._flushPlayback();
     if (this._inTurn) this._hushed = true;
+  }
+
+  // Like hush(), but always drops the rest of the turn being transcribed —
+  // used by the repeat guard, which only fires while a turn is arriving
+  // (after a tool call Vertex can send its transcript before any audio, so
+  // _inTurn may not be set yet and hush() would do nothing).
+  // `secs` = how far into the turn's audio the repeat starts (estimated from
+  // its text offset by the caller). The transcript arrives well ahead of the
+  // audio, so most of the good part hasn't even been received yet: keep
+  // playing audio up to that point and drop everything after it.
+  hushTurn(secs = 0) {
+    if (!this.playCtx) return;
+    const t0 = this._turnT0 ?? Math.max(this.playCtx.currentTime, this._nextPlay);
+    this._cutAt = Math.max(this.playCtx.currentTime, t0 + secs);
+    for (const s of this._sources) {
+      try { if (s._t0 >= this._cutAt) s.stop(); else s.stop(this._cutAt); } catch { }
+    }
+    this._inTurn = true;
+    this._muteText = true; // no more caption for this turn
   }
 
   sendText(text) {

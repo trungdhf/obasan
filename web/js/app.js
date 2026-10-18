@@ -532,8 +532,10 @@ async function _openLive() {
           transcriptBuf += text;
           // Safety net: Live sometimes loops inside one turn
           // (「Dạ bà nội nghe rõ nha…」 x20). Cut the turn at the first repeat.
-          if (text && !done && repeatsInTurn(transcriptBuf)) {
-            live?.hush();
+          const rep = text && !done ? repeatsInTurn(transcriptBuf) : -1;
+          if (rep >= 0) {
+            // text offset -> seconds of speech (ja ~7.5 chars/s, vi ~13)
+            live?.hushTurn(rep / (CONFIG.lang === 'vi' ? 13 : 7.5) + 0.3);
             log('くり返しを検出 → このターンを停止');
           }
           // Vertex sometimes leaks tool call/response JSON into the output
@@ -726,16 +728,20 @@ function goActive(reason) {
   reportPresence(true, reason);
   // Opening the app always asks how she is; coming back in front of the
   // tablet asks at most every 3 h. Not right after she answered a call.
-  const askHealth = !pendingUserText && (reason === '起動' || healthAskDue());
+  const opening = reason === '起動' && !pendingUserText; // the app was just opened
+  const askHealth = !pendingUserText && (opening || healthAskDue());
   if (askHealth) markHealthAsk();
   if (CONFIG.demo) {
-    speakFallback(askHealth ? L().welcomeAsk : L().welcome);
+    speakFallback(opening ? L().welcomeOpen : askHealth ? L().welcomeAsk : L().welcome);
     if (askHealth) setTimeout(() => whenQuiet(showHealthReplies), 1500);
   } else {
     openLive().then(() => {
       if (avatar.state !== 'active') return; // she left while Live was connecting
       if (live?.connected) {
-        live.sendText(askHealth
+        live.sendText(opening
+          ? T('（システム）アプリが開きました。おばあちゃんに元気にあいさつして、きょうのたいちょうとおくすりをのんだかをやさしく聞いて、それから「あとで、なぞなぞする？てんきみる？」と遊びをひとつ提案して（3〜4文で短く）。',
+            '(Hệ thống) App vừa mở. Chào bà nội thật vui, hỏi thăm sức khỏe và bà nội đã uống thuốc chưa, rồi rủ bà nội chơi đố vui hoặc xem thời tiết (3-4 câu ngắn thôi).')
+          : askHealth
           ? T('（システム）おばあちゃんが戻ってきました。あいさつして、きょうのたいちょうをやさしく聞いて（「きょうはげんき？」「ごはんたべた？おくすりのんだ？」など。2〜3文で短く）。',
             '(Hệ thống) Bà nội vừa quay lại. Chào bà nội rồi hỏi thăm sức khỏe nhẹ nhàng ("hôm nay bà nội khỏe không?", "bà nội ăn cơm, uống thuốc chưa?"), 2-3 câu ngắn thôi.')
           : T('（システム）おばあちゃんが戻ってきました。短くあいさつして。', '(Hệ thống) Bà nội vừa quay lại. Chào bà nội ngắn gọn thôi.'));
@@ -745,7 +751,7 @@ function goActive(reason) {
         setTimeout(() => {
           if (avatar.state === 'active' && lastTurnStartAt < sentAt && !ttsPlaying && !live?.speaking) {
             log('あいさつ無応答 → 録音であいさつ');
-            speakTts(askHealth ? L().welcomeAsk : L().welcome);
+            speakTts(opening ? L().welcomeOpen : askHealth ? L().welcomeAsk : L().welcome);
             if (askHealth) setTimeout(() => whenQuiet(showHealthReplies), 1500);
           }
         }, 7000);
@@ -753,7 +759,7 @@ function goActive(reason) {
           const m = pendingUserText; pendingUserText = null;
           setTimeout(() => live?.sendText(m), 1800);
         }
-      } else speakFallback(askHealth ? L().welcomeAsk : L().welcome);
+      } else speakFallback(opening ? L().welcomeOpen : askHealth ? L().welcomeAsk : L().welcome);
     });
   }
   log(`おばあちゃん検出（${reason}）。Liveセッション再開。`);
@@ -1077,16 +1083,23 @@ async function continueStory() {
   live?.sendText(T(`（システム）おはなしのつづき（${r.part}/${r.parts}）。要約・省略せず、このとおりに一文ずつ読んで:「${r.text}」`,
     `(Hệ thống) Phần tiếp của truyện (${r.part}/${r.parts}). Kể lại bằng tiếng Việt đầy đủ từng ý, không tóm tắt: "${r.text}"`));
 }
-// true once a sentence of 10+ chars occurs twice in the current turn
+// Offset in `t` where a sentence of 10+ chars occurs for the THIRD time in
+// the current turn, or -1. (Not the second: Vertex's output transcript
+// sometimes doubles text the audio doesn't contain — cutting on 2 dropped
+// real speech. A true loop repeats far more, e.g. 「Dạ bà nội nghe rõ nha」 x20.)
 function repeatsInTurn(t) {
-  const seen = new Set();
-  for (const raw of t.replace(/\{[^{}]*\}/g, '').split(/(?<=[。！？!?.])/)) {
-    const k = raw.replace(/[\s、。！？!?,.…〜~ー「」"]/g, '').toLowerCase();
-    if (k.length < 10) continue;
-    if (seen.has(k)) return true;
-    seen.add(k);
+  const seen = new Map();
+  let pos = 0;
+  for (const raw of t.split(/(?<=[。！？!?.])/)) {
+    const k = raw.replace(/\{[^{}]*\}/g, '').replace(/[\s、。！？!?,.…〜~ー「」"]/g, '').toLowerCase();
+    if (k.length >= 10) {
+      const n = (seen.get(k) || 0) + 1;
+      if (n >= 3) return pos;
+      seen.set(k, n);
+    }
+    pos += raw.length;
   }
-  return false;
+  return -1;
 }
 let quietTimer = null;
 let lastTurnStartAt = 0; // when Live last started speaking
