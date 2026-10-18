@@ -321,6 +321,11 @@ export class LiveSession {
     this._send({ toolResponse: { functionResponses: [{ id, name, response }] } });
   }
 
+  // several results in one message → the model resumes once, not once each
+  sendToolResponses(list) {
+    if (list.length) this._send({ toolResponse: { functionResponses: list } });
+  }
+
   disconnect() {
     this.connected = false;
     try { this.ws?.close(); } catch { }

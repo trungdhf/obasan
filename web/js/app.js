@@ -72,6 +72,7 @@ const SYSTEM_PROMPT = `あなたは「ひなた」。6歳・小学校1年生の�
 役割:
 - おばあちゃんに質問するときは、いっしょに show_reply_options を呼んで、質問にぴったり合う回答ボタン（2〜4個、短いひらがな言葉）を画面に出す。例:「ごはんたべた？」→「たべたよ」「まだ」「あとで」。「げんき？」→「げんきだよ」「ちょっとつかれてる」。
 - 気分に合わせて set_emotion を呼ぶ（normal/happy/sad/worried/pout/scared/surprised）。
+- set_emotion / play_animation / show_reply_options は、話し始める前にまとめて1回ずつ呼ぶ。ツールを呼んだあとに、もう言ったこと（ほめことば など）を言い直さない。正解をほめるのは1回だけ。
 - おばあちゃんが正解した・喜んだ → play_animation:clapping で拍手して大喜びする（正解したら必ず）。驚いたら surprised、考え込む間は thinking、元気なとき jump。
 - ツール呼び出しやその結果、JSONは絶対に声に出さない。しゃべるのは自然な日本語だけ。
 - おばあちゃんの具合が悪そう、返事がない、危険がありそう → notify_family で家族に連絡。重大な判断は必ず人間（家族）に任せる。
@@ -138,6 +139,7 @@ Cảnh báo lừa đảo qua điện thoại:
 Vai trò:
 - Khi hỏi bà một câu, gọi luôn show_reply_options để hiện 2-4 nút trả lời khớp đúng câu hỏi. Ví dụ hỏi "bà ăn cơm chưa" → ["Ăn rồi","Chưa ăn","Để lát"]; hỏi "bà khỏe không" → ["Khỏe lắm","Hơi mệt","Ốm rồi"].
 - set_emotion theo tình huống (normal/happy/sad/worried/pout/scared/surprised). Bà đúng hoặc vui → play_animation:clapping.
+- Gọi set_emotion / play_animation / show_reply_options mỗi cái một lần, gộp lại trước khi nói. Gọi tool xong thì KHÔNG nói lại câu đã nói (ví dụ lời khen). Bà nội trả lời đúng thì chỉ khen một lần thôi.
 - Không đọc to JSON hay kết quả tool. Chỉ nói tiếng Việt tự nhiên.
 - Bà có vẻ ốm, không trả lời, có nguy hiểm → notify_family. Việc quan trọng luôn để gia đình quyết định.
 - Hẹn thuốc/cơm/nước → schedule_reminder.
@@ -586,6 +588,15 @@ function setLiveBadge(on) {
   $('liveBadge').classList.toggle('on', Boolean(on));
 }
 
+// UI-tool results are sent together after a short wait: answering each one
+// separately made Live resume after every result, and it praised a correct
+// riddle answer three times (clapping + emotion + reply buttons).
+let uiPending = [], uiTimer = null;
+function queueUiResponse(id, name, response) {
+  uiPending.push({ id, name, response });
+  clearTimeout(uiTimer);
+  uiTimer = setTimeout(() => { const l = uiPending; uiPending = []; live?.sendToolResponses(l); }, 300);
+}
 const recentTools = new Map(); // call signature -> last time it ran
 async function handleToolCall(call) {
   const { id, name, args = {} } = call;
@@ -596,7 +607,8 @@ async function handleToolCall(call) {
   const now = performance.now();
   if (now - (recentTools.get(sig) || -1e9) < 8000) {
     recentTools.set(sig, now);
-    live?.sendToolResponse(id, name, { ok: true, note: 'already done — do not call this again; just keep talking to grandma' });
+    const dup = { ok: true, note: 'already done — do not call this again; just keep talking to grandma' };
+    if (UI_TOOLS.has(name)) queueUiResponse(id, name, dup); else live?.sendToolResponse(id, name, dup);
     return;
   }
   recentTools.set(sig, now);
@@ -682,7 +694,11 @@ async function handleToolCall(call) {
   } catch (e) {
     result = { ok: false, error: String(e) };
   }
-  if (UI_TOOLS.has(name) && result.ok) result.note = UI_TOOL_NOTE;
+  if (UI_TOOLS.has(name)) {
+    if (result.ok) result.note = UI_TOOL_NOTE;
+    queueUiResponse(id, name, result);
+    return;
+  }
   live?.sendToolResponse(id, name, result);
 }
 
