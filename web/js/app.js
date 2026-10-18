@@ -526,7 +526,7 @@ async function _openLive() {
         // Reply buttons only while Hinata is quiet: a tap mid-sentence (e.g.
         // 「つづきよんで」 while she is still reading a story part) skipped text.
         // (Not on transcript chunks — Vertex can send those after turnComplete.)
-        onTurnStart: () => { clearTimeout(quietTimer); hideReplies(); },
+        onTurnStart: () => { lastTurnStartAt = performance.now(); clearTimeout(quietTimer); hideReplies(); },
         micMuted: () => ttsPlaying > 0 || Boolean(songEl && !songEl.paused),
         onTranscript: (text, done) => {
           transcriptBuf += text;
@@ -724,7 +724,9 @@ function goActive(reason) {
   avatar.setMood('happy');
   avatar.waveHello?.();          // ひなた waves when greeting grandma
   reportPresence(true, reason);
-  const askHealth = !pendingUserText && healthAskDue(); // not right after she answered a call
+  // Opening the app always asks how she is; coming back in front of the
+  // tablet asks at most every 3 h. Not right after she answered a call.
+  const askHealth = !pendingUserText && (reason === '起動' || healthAskDue());
   if (askHealth) markHealthAsk();
   if (CONFIG.demo) {
     speakFallback(askHealth ? L().welcomeAsk : L().welcome);
@@ -737,6 +739,16 @@ function goActive(reason) {
           ? T('（システム）おばあちゃんが戻ってきました。あいさつして、きょうのたいちょうをやさしく聞いて（「きょうはげんき？」「ごはんたべた？おくすりのんだ？」など。2〜3文で短く）。',
             '(Hệ thống) Bà nội vừa quay lại. Chào bà nội rồi hỏi thăm sức khỏe nhẹ nhàng ("hôm nay bà nội khỏe không?", "bà nội ăn cơm, uống thuốc chưa?"), 2-3 câu ngắn thôi.')
           : T('（システム）おばあちゃんが戻ってきました。短くあいさつして。', '(Hệ thống) Bà nội vừa quay lại. Chào bà nội ngắn gọn thôi.'));
+        // Live sometimes ignores the greeting nudge and stays silent — if she
+        // hasn't started talking within 7 s, play the recorded greeting.
+        const sentAt = performance.now();
+        setTimeout(() => {
+          if (avatar.state === 'active' && lastTurnStartAt < sentAt && !ttsPlaying && !live?.speaking) {
+            log('あいさつ無応答 → 録音であいさつ');
+            speakTts(askHealth ? L().welcomeAsk : L().welcome);
+            if (askHealth) setTimeout(() => whenQuiet(showHealthReplies), 1500);
+          }
+        }, 7000);
         if (pendingUserText) {
           const m = pendingUserText; pendingUserText = null;
           setTimeout(() => live?.sendText(m), 1800);
@@ -1077,6 +1089,7 @@ function repeatsInTurn(t) {
   return false;
 }
 let quietTimer = null;
+let lastTurnStartAt = 0; // when Live last started speaking
 function whenQuiet(fn) {
   clearTimeout(quietTimer);
   const check = () => (live?.speaking || ttsPlaying) ? (quietTimer = setTimeout(check, 250)) : fn();
